@@ -6,35 +6,107 @@ A real-time competitive coding platform where users race to solve Codeforces pro
 
 ---
 
-## 🚀 Quick Deploy to Railway
+## 🚀 Deploy to Railway (From Scratch)
 
-Deploy both frontend and backend to Railway in ~10 minutes.
+Follow these steps to deploy CodeDuel to Railway in 15 minutes.
 
-### Prerequisites
-- GitHub account with this repo
-- [Railway account](https://railway.app) (free)
+---
 
-### Backend Deployment
+### Step 1: Prepare Repository
 
-1. **New Project** on Railway → Deploy from GitHub → Select this repo
-2. **Settings** → Root Directory: `/backend`
-3. **Variables** → Add: `CORS_ALLOWED_ORIGINS=http://localhost:3000` (update later)
-4. Wait for build (~2 min) → Copy backend URL
+Make sure your code is pushed to GitHub:
+```bash
+git add .
+git commit -m "Ready for deployment"
+git push origin main
+```
 
-### Frontend Deployment
+---
 
-1. Same project → **+ New** → GitHub Repo → Select this repo again
-2. **Settings** → Root Directory: `/frontend`
-3. **Settings** → Build Command: `npm install && npm run build`
-4. **Settings** → Start Command: `npx serve -s dist -l 3000`
-5. **Settings** → Port: `3000`
-6. **Variables** → Add: `VITE_BACKEND_URL=https://YOUR-BACKEND-URL.railway.app`
-7. Wait for build (~3 min) → Copy frontend URL
+### Step 2: Deploy Backend
 
-### Connect Services
+1. Go to [Railway Dashboard](https://railway.app/dashboard)
+2. Click **"New Project"**
+3. Select **"Deploy from GitHub repo"**
+4. Choose **yogyam/CodeDuel** repository
+5. Railway will auto-detect Spring Boot app
 
-1. Go back to backend → **Variables** → Update `CORS_ALLOWED_ORIGINS` to frontend URL
-2. Done! Visit your frontend URL 🎉
+**Configure Backend:**
+- Click on the service card
+- Go to **Settings** tab
+- **Root Directory**: Set to `/backend`
+- **Networking**: Port should be `8080` (auto-detected)
+- Click **Variables** tab
+- Add variable `CORS_ALLOWED_ORIGINS` = `http://localhost:3000` (temporary)
+
+**Wait for deployment** (~2-3 minutes)
+
+**Get Backend URL:**
+- Go to **Settings** → **Networking** → **Public Networking**
+- Copy the domain (e.g., `codeduel-backend-xyz.up.railway.app`)
+- **SAVE THIS URL** - you'll need it!
+
+**Test backend:**
+Visit `https://YOUR-BACKEND-URL.railway.app/api/game/health`
+Should return: `{"service":"CodeRace Backend","status":"UP"}`
+
+---
+
+### Step 3: Deploy Frontend
+
+**In the same Railway project:**
+
+1. Click **"+ New"** button
+2. Select **"GitHub Repo"**
+3. Choose **yogyam/CodeDuel** again (same repo!)
+4. Railway creates a second service
+
+**Configure Frontend:**
+- Click on the new service card
+- Go to **Settings** tab
+- **Root Directory**: `/frontend`
+- Scroll down to **Deploy** section:
+  - **Build Command**: `npm install && npm run build`
+  - **Start Command**: `npx serve -s dist -l 3000`
+- **Networking** → **Port**: `3000`
+
+**Add Environment Variable:**
+- Click **Variables** tab
+- Add: `VITE_BACKEND_URL` = `https://YOUR-BACKEND-URL.railway.app`
+  - ⚠️ Replace with your actual backend URL from Step 2
+  - ⚠️ Must include `https://`!
+
+**Wait for deployment** (~3-5 minutes)
+
+**Get Frontend URL:**
+- **Settings** → **Networking** → Copy public domain
+- Example: `codeduel-frontend-abc.railway.app`
+
+---
+
+### Step 4: Connect Frontend & Backend
+
+**Update Backend CORS:**
+1. Go to **backend service** (first service you created)
+2. Click **Variables** tab
+3. Edit `CORS_ALLOWED_ORIGINS`
+4. Change to: `https://YOUR-FRONTEND-URL.railway.app`
+   - ⚠️ Use the exact frontend URL from Step 3
+   - ⚠️ Must include `https://`!
+5. Save - backend will auto-redeploy (~1 minute)
+
+---
+
+### Step 5: Test Your App! 🎉
+
+1. Visit your frontend URL
+2. Enter a Codeforces handle (try "tourist")
+3. Click **"Create New Room"**
+4. You should see a Room ID!
+5. Open incognito window, join with the Room ID
+6. Start a game and verify everything works
+
+**If it works: Congratulations! � Your app is live!**
 
 ---
 
