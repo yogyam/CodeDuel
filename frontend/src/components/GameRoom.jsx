@@ -1,11 +1,17 @@
 import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import webSocketService from '../services/WebSocketService';
 
 /**
  * Game Room Component
  * Displays the game room with users, problem, and status
  */
-function GameRoom({ roomId, codeforcesHandle, onLeave }) {
+function GameRoom() {
+  const { roomId } = useParams();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const codeforcesHandle = user?.codeforcesHandle || 'anonymous';
   const [gameState, setGameState] = useState({
     state: 'WAITING',
     users: [],
@@ -24,12 +30,11 @@ function GameRoom({ roomId, codeforcesHandle, onLeave }) {
     // Connect to WebSocket
     webSocketService.connect(() => {
       setConnected(true);
-      
+
       // Subscribe to room updates
       webSocketService.subscribe(`/topic/room/${roomId}`, (update) => {
-        console.log('Received update:', update);
         setGameState(update);
-        
+
         // Check if current user is the host
         const currentUser = update.users.find(u => u.codeforcesHandle === codeforcesHandle);
         if (currentUser) {
@@ -59,7 +64,7 @@ function GameRoom({ roomId, codeforcesHandle, onLeave }) {
    */
   const handleStartGame = () => {
     if (!isHost) return;
-    
+
     webSocketService.send(`/app/game/${roomId}/start`, {
       rating: selectedRating
     });
@@ -182,7 +187,7 @@ function GameRoom({ roomId, codeforcesHandle, onLeave }) {
             </div>
           </div>
         </div>
-        
+
         {/* Tags */}
         <div className="flex flex-wrap gap-2 mb-4">
           {gameState.problem?.tags?.map((tag, index) => (
@@ -210,14 +215,12 @@ function GameRoom({ roomId, codeforcesHandle, onLeave }) {
           {gameState.users.map((user, index) => (
             <div
               key={index}
-              className={`flex items-center justify-between p-3 rounded-lg ${
-                user.status === 'WON' ? 'bg-green-100' : 'bg-gray-50'
-              }`}
+              className={`flex items-center justify-between p-3 rounded-lg ${user.status === 'WON' ? 'bg-green-100' : 'bg-gray-50'
+                }`}
             >
               <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${
-                  user.status === 'WON' ? 'bg-green-500' : 'bg-coderace-blue'
-                }`}>
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${user.status === 'WON' ? 'bg-green-500' : 'bg-coderace-blue'
+                  }`}>
                   {user.status === 'WON' ? '🏆' : user.codeforcesHandle[0].toUpperCase()}
                 </div>
                 <div className="font-semibold">{user.codeforcesHandle}</div>
@@ -246,7 +249,7 @@ function GameRoom({ roomId, codeforcesHandle, onLeave }) {
    */
   const renderFinishedGame = () => {
     const winner = gameState.users.find(u => u.sessionId === gameState.winnerId);
-    
+
     return (
       <div className="space-y-6">
         {/* Winner Announcement */}
@@ -291,7 +294,7 @@ function GameRoom({ roomId, codeforcesHandle, onLeave }) {
           </div>
         </div>
 
-        <button className="btn-primary w-full" onClick={onLeave}>
+        <button className="btn-primary w-full" onClick={() => navigate('/dashboard')}>
           Leave Room
         </button>
       </div>
@@ -308,7 +311,7 @@ function GameRoom({ roomId, codeforcesHandle, onLeave }) {
           </h1>
           <button
             className="text-gray-600 hover:text-gray-900"
-            onClick={onLeave}
+            onClick={() => navigate('/dashboard')}
           >
             ← Leave Room
           </button>

@@ -27,7 +27,7 @@ class WebSocketService {
     this.client = new Client({
       webSocketFactory: () => socket,
       debug: (str) => {
-        console.log('STOMP: ' + str);
+        // console.log('STOMP: ' + str); // Removed
       },
       reconnectDelay: 5000,
       heartbeatIncoming: 4000,
@@ -36,7 +36,7 @@ class WebSocketService {
 
     // Called when connection is established
     this.client.onConnect = (frame) => {
-      console.log('Connected to WebSocket:', frame);
+      // console.log('Connected to WebSocket:', frame); // Removed
       this.connected = true;
       if (onConnected) {
         onConnected();
@@ -60,7 +60,7 @@ class WebSocketService {
       this.client.deactivate();
       this.connected = false;
       this.subscriptions = {};
-      console.log('Disconnected from WebSocket');
+      // console.log('Disconnected from WebSocket'); // Removed
     }
   }
 
@@ -81,7 +81,7 @@ class WebSocketService {
     });
 
     this.subscriptions[topic] = subscription;
-    console.log('Subscribed to:', topic);
+    // console.log('Subscribed to:', topic); // Removed
   }
 
   /**
@@ -92,7 +92,6 @@ class WebSocketService {
     if (this.subscriptions[topic]) {
       this.subscriptions[topic].unsubscribe();
       delete this.subscriptions[topic];
-      console.log('Unsubscribed from:', topic);
     }
   }
 
@@ -112,7 +111,7 @@ class WebSocketService {
       body: JSON.stringify(body),
     });
 
-    console.log('Sent message to:', destination, body);
+    // console.log('Sent message to:', destination, body); // Removed
   }
 
   /**

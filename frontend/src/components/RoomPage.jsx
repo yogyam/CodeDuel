@@ -1,20 +1,25 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import apiService from '../services/apiService';
+import './RoomPage.css';
 
 /**
- * Landing Page Component
- * Users enter their Codeforces handle and either create or join a room
+ * Room Page - Create or join a coding room
  */
-function LandingPage({ onRoomCreated, onRoomJoined }) {
-  const [codeforcesHandle, setCodeforcesHandle] = useState('');
-  const [roomIdToJoin, setRoomIdToJoin] = useState('');
+function RoomPage() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [codeforcesHandle, setCodeforcesHandle] = useState(user?.codeforcesHandle || '');
+  const [roomId, setRoomId] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   /**
    * Creates a new room
    */
-  const handleCreateRoom = async () => {
+  const handleCreateRoom = async (e) => {
+    e.preventDefault();
     if (!codeforcesHandle.trim()) {
       setError('Please enter your Codeforces handle');
       return;
@@ -25,7 +30,8 @@ function LandingPage({ onRoomCreated, onRoomJoined }) {
 
     try {
       const response = await apiService.createRoom(codeforcesHandle);
-      onRoomCreated(response.roomId, codeforcesHandle);
+      // Navigate to the game room
+      navigate(`/game/${response.roomId}`);
     } catch (err) {
       console.error('Error creating room:', err);
       setError('Failed to create room. Please try again.');
@@ -37,19 +43,32 @@ function LandingPage({ onRoomCreated, onRoomJoined }) {
   /**
    * Joins an existing room
    */
-  const handleJoinRoom = () => {
+  const handleJoinRoom = async (e) => {
+    e.preventDefault();
+    if (!roomId.trim()) {
+      setError('Please enter a room ID');
+      return;
+    }
+
     if (!codeforcesHandle.trim()) {
       setError('Please enter your Codeforces handle');
       return;
     }
 
-    if (!roomIdToJoin.trim()) {
-      setError('Please enter a room ID');
-      return;
-    }
-
+    setLoading(true);
     setError('');
-    onRoomJoined(roomIdToJoin.toUpperCase(), codeforcesHandle);
+
+    try {
+      // Verify room exists
+      await apiService.getRoomInfo(roomId);
+      // Navigate to the game room
+      navigate(`/game/${roomId}`);
+    } catch (err) {
+      console.error('Error joining room:', err);
+      setError('Room not found. Please check the room ID.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -112,8 +131,8 @@ function LandingPage({ onRoomCreated, onRoomJoined }) {
             type="text"
             className="input-field w-full"
             placeholder="Enter room ID (e.g., ABC123)"
-            value={roomIdToJoin}
-            onChange={(e) => setRoomIdToJoin(e.target.value.toUpperCase())}
+            value={roomId}
+            onChange={(e) => setRoomId(e.target.value.toUpperCase())}
             disabled={loading}
           />
         </div>
@@ -142,4 +161,4 @@ function LandingPage({ onRoomCreated, onRoomJoined }) {
   );
 }
 
-export default LandingPage;
+export default RoomPage;
