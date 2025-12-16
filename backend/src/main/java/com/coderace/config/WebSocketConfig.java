@@ -1,7 +1,9 @@
 package com.coderace.config;
 
+import com.coderace.security.WebSocketAuthInterceptor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
@@ -12,10 +14,11 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
  * 
  * Message Flow:
  * 1. Clients connect to /ws endpoint using SockJS
- * 2. Clients subscribe to /topic/room/{roomId} to receive room updates
- * 3. Clients send messages to /app/* endpoints which are handled
+ * 2. JWT token is validated via WebSocketAuthInterceptor
+ * 3. Clients subscribe to /topic/room/{roomId} to receive room updates
+ * 4. Clients send messages to /app/* endpoints which are handled
  * by @MessageMapping
- * 4. Server broadcasts updates to all subscribers via /topic destinations
+ * 5. Server broadcasts updates to all subscribers via /topic destinations
  */
 @Configuration
 @EnableWebSocketMessageBroker
@@ -23,6 +26,12 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Value("${cors.allowed-origins}")
     private String allowedOrigins;
+
+    private final WebSocketAuthInterceptor webSocketAuthInterceptor;
+
+    public WebSocketConfig(WebSocketAuthInterceptor webSocketAuthInterceptor) {
+        this.webSocketAuthInterceptor = webSocketAuthInterceptor;
+    }
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry config) {
@@ -32,6 +41,12 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
         // Messages sent to /app/* will be routed to @MessageMapping methods
         config.setApplicationDestinationPrefixes("/app");
+    }
+
+    @Override
+    public void configureClientInboundChannel(ChannelRegistration registration) {
+        // Add JWT authentication interceptor
+        registration.interceptors(webSocketAuthInterceptor);
     }
 
     @Override

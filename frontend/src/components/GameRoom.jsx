@@ -2,15 +2,17 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import webSocketService from '../services/WebSocketService';
+import apiService from '../services/apiService';
+import './GameRoom.css';
 
 /**
  * Game Room Component
  * Displays the game room with users, problem, and status
  */
 function GameRoom() {
-  const { roomId } = useParams();
+  const { roomId } = useParams(); // Get roomId from URL
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, token } = useAuth(); // Get JWT token from auth context
   const codeforcesHandle = user?.codeforcesHandle || 'anonymous';
   const [gameState, setGameState] = useState({
     state: 'WAITING',
@@ -22,17 +24,27 @@ function GameRoom() {
   const [selectedRating, setSelectedRating] = useState(1200);
   const [isHost, setIsHost] = useState(false);
   const [connected, setConnected] = useState(false);
+  const [room, setRoom] = useState(null);
+  const [currentProblem, setCurrentProblem] = useState(null);
+  const [users, setUsers] = useState([]);
+  const [code, setCode] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [timeElapsed, setTimeElapsed] = useState(0);
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
 
   // Difficulty options
   const difficultyOptions = [800, 900, 1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 1900, 2000];
 
+  // Initialize WebSocket connection with JWT token
   useEffect(() => {
-    // Connect to WebSocket
     webSocketService.connect(() => {
-      setConnected(true);
+      console.log('Connected to WebSocket');
+      setConnected(true); // Keep this to indicate connection status
 
       // Subscribe to room updates
       webSocketService.subscribe(`/topic/room/${roomId}`, (update) => {
+        // Assuming handleRoomUpdate would process the update object
+        // For now, we'll keep the original setGameState and host check logic
         setGameState(update);
 
         // Check if current user is the host

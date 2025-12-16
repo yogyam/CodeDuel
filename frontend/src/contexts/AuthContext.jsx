@@ -96,7 +96,6 @@ export function AuthProvider({ children }) {
      * Initiate Google OAuth login
      */
     const loginWithGoogle = () => {
-        console.log('loginWithGoogle called, redirecting to:', `${API_URL}/oauth2/authorization/google`);
         window.location.href = `${API_URL}/oauth2/authorization/google`;
     };
 

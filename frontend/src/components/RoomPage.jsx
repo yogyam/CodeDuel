@@ -4,8 +4,30 @@ import { useAuth } from '../contexts/AuthContext';
 import apiService from '../services/apiService';
 import './RoomPage.css';
 
+// Validation constants
+const HANDLE_REGEX = /^[a-zA-Z0-9_]{3,24}$/;
+const ROOM_ID_REGEX = /^[A-Z0-9]{6}$/;
+
+// Validation functions
+const validateCodeforcesHandle = (handle) => {
+  if (!handle) return 'Codeforces handle is required';
+  if (!HANDLE_REGEX.test(handle)) {
+    return 'Handle must be 3-24 characters (letters, numbers, underscore only)';
+  }
+  return null;
+};
+
+const validateRoomId = (roomId) => {
+  if (!roomId) return 'Room ID is required';
+  if (!ROOM_ID_REGEX.test(roomId)) {
+    return 'Room ID must be 6 uppercase alphanumeric characters';
+  }
+  return null;
+};
+
 /**
- * Room Page - Create or join a coding room
+ * Room Page Component
+ * Allows users to create or join a room
  */
 function RoomPage() {
   const { user } = useAuth();
@@ -13,18 +35,13 @@ function RoomPage() {
   const [codeforcesHandle, setCodeforcesHandle] = useState(user?.codeforcesHandle || '');
   const [roomId, setRoomId] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
 
   /**
    * Creates a new room
    */
   const handleCreateRoom = async (e) => {
     e.preventDefault();
-    if (!codeforcesHandle.trim()) {
-      setError('Please enter your Codeforces handle');
-      return;
-    }
-
     setLoading(true);
     setError('');
 
@@ -45,19 +62,23 @@ function RoomPage() {
    */
   const handleJoinRoom = async (e) => {
     e.preventDefault();
-    if (!roomId.trim()) {
-      setError('Please enter a room ID');
+
+    // Validate handle
+    const handleError = validateCodeforcesHandle(codeforcesHandle);
+    if (handleError) {
+      setError(handleError);
       return;
     }
 
-    if (!codeforcesHandle.trim()) {
-      setError('Please enter your Codeforces handle');
+    // Validate room ID
+    const roomError = validateRoomId(roomId);
+    if (roomError) {
+      setError(roomError);
       return;
     }
 
     setLoading(true);
-    setError('');
-
+    setError(null);
     try {
       // Verify room exists
       await apiService.getRoomInfo(roomId);

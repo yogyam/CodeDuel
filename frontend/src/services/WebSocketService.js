@@ -15,10 +15,11 @@ class WebSocketService {
   /**
    * Connects to the WebSocket server
    * @param {Function} onConnected Callback when connection is established
+   * @param {string} token JWT token for authentication (optional)
    */
-  connect(onConnected) {
+  connect(onConnected, token = null) {
     // Use environment variable or default to localhost
-    const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080';
+    const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
     // Create SockJS instance
     const socket = new SockJS(`${backendUrl}/ws`);
@@ -32,6 +33,10 @@ class WebSocketService {
       reconnectDelay: 5000,
       heartbeatIncoming: 4000,
       heartbeatOutgoing: 4000,
+      // Add JWT token to connection headers if provided
+      connectHeaders: token ? {
+        'Authorization': `Bearer ${token}`
+      } : {}
     });
 
     // Called when connection is established
