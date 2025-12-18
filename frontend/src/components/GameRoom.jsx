@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import webSocketService from '../services/WebSocketService';
 import apiService from '../services/apiService';
-import './GameRoom.css';
 
 /**
  * Game Room Component

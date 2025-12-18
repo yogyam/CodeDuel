@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import './LoginPage.css';
 
@@ -8,19 +8,6 @@ import './LoginPage.css';
  */
 function LoginPage() {
     const { loginWithGoogle } = useAuth();
-
-    // Check if redirected back from OAuth with token in URL
-    useEffect(() => {
-        const params = new URLSearchParams(window.location.search);
-        const token = params.get('token');
-
-        if (token) {
-            // Token received from OAuth callback, store it
-            localStorage.setItem('auth_token', token);
-            // Reload to trigger AuthContext to load user
-            window.location.href = '/';
-        }
-    }, []);
 
     return (
         <div className="login-container">
