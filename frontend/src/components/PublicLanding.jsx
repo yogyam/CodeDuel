@@ -1,12 +1,20 @@
 import React from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import './PublicLanding.css';
 
 /**
  * Public Landing Page - shown to unauthenticated users
  */
 function PublicLanding() {
-    const { loginWithGoogle } = useAuth();
+    const navigate = useNavigate();
+
+    const handleSignIn = () => {
+        navigate('/login');
+    };
+
+    const handleGetStarted = () => {
+        navigate('/signup');
+    };
 
     return (
         <div className="landing">
@@ -17,7 +25,7 @@ function PublicLanding() {
                         <span className="logo-icon">🏁</span>
                         <span className="logo-text">CodeDuel</span>
                     </div>
-                    <button className="sign-in-btn" onClick={loginWithGoogle}>
+                    <button className="sign-in-btn" onClick={handleSignIn}>
                         Sign In
                     </button>
                 </div>
@@ -29,7 +37,7 @@ function PublicLanding() {
                     <p className="hero-subtitle">
                         Compete in real-time coding challenges and improve your skills together
                     </p>
-                    <button className="cta-btn" onClick={loginWithGoogle}>
+                    <button className="cta-btn" onClick={handleGetStarted}>
                         Get Started →
                     </button>
                 </div>

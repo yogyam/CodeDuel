@@ -4,16 +4,18 @@ import { useAuth } from '../contexts/AuthContext';
 import './LoginPage.css';
 
 /**
- * Login Page Component
- * Provides email/password login and Google OAuth
+ * Signup Page Component
+ * Provides email/password registration and Google OAuth
  */
-function LoginPage() {
-    const { loginWithEmail, loginWithGoogle } = useAuth();
+function SignupPage() {
+    const { registerWithEmail, loginWithGoogle } = useAuth();
     const navigate = useNavigate();
 
     const [formData, setFormData] = useState({
         email: '',
-        password: ''
+        password: '',
+        confirmPassword: '',
+        codeforcesHandle: ''
     });
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
@@ -30,25 +32,33 @@ function LoginPage() {
         e.preventDefault();
         setError('');
 
+        // Client-side validation
         if (!formData.email || !formData.password) {
             setError('Email and password are required');
+            return;
+        }
+
+        if (formData.password !== formData.confirmPassword) {
+            setError('Passwords do not match');
+            return;
+        }
+
+        if (formData.password.length < 8) {
+            setError('Password must be at least 8 characters');
             return;
         }
 
         setLoading(true);
 
         try {
-            await loginWithEmail(formData.email, formData.password);
+            await registerWithEmail(
+                formData.email,
+                formData.password,
+                formData.codeforcesHandle || null
+            );
             // AuthContext handles redirect to dashboard
         } catch (err) {
-            // Check for specific error messages
-            if (err.message.includes('Email not found')) {
-                setError('Email not found. Would you like to sign up instead?');
-            } else if (err.message.includes('Google OAuth')) {
-                setError(err.message);
-            } else {
-                setError(err.message || 'Invalid email or password');
-            }
+            setError(err.message || 'Registration failed. Please try again.');
             setLoading(false);
         }
     };
@@ -58,7 +68,7 @@ function LoginPage() {
             <div className="login-card">
                 <div className="logo-section">
                     <h1>⚡ CodeDuel</h1>
-                    <p className="tagline">Welcome back!</p>
+                    <p className="tagline">Create your account</p>
                 </div>
 
                 <div className="login-content">
@@ -91,8 +101,37 @@ function LoginPage() {
                                 name="password"
                                 value={formData.password}
                                 onChange={handleChange}
-                                placeholder="Enter your password"
+                                placeholder="At least 8 characters"
                                 required
+                                disabled={loading}
+                            />
+                        </div>
+
+                        <div className="form-group">
+                            <label htmlFor="confirmPassword">Confirm Password</label>
+                            <input
+                                type="password"
+                                id="confirmPassword"
+                                name="confirmPassword"
+                                value={formData.confirmPassword}
+                                onChange={handleChange}
+                                placeholder="Re-enter password"
+                                required
+                                disabled={loading}
+                            />
+                        </div>
+
+                        <div className="form-group">
+                            <label htmlFor="codeforcesHandle">
+                                Codeforces Handle <span className="optional">(Optional)</span>
+                            </label>
+                            <input
+                                type="text"
+                                id="codeforcesHandle"
+                                name="codeforcesHandle"
+                                value={formData.codeforcesHandle}
+                                onChange={handleChange}
+                                placeholder="tourist"
                                 disabled={loading}
                             />
                         </div>
@@ -102,14 +141,14 @@ function LoginPage() {
                             className="google-login-btn"
                             disabled={loading}
                         >
-                            {loading ? 'Logging in...' : 'Log In'}
+                            {loading ? 'Creating Account...' : 'Sign Up'}
                         </button>
                     </form>
 
                     <div className="auth-divider">
-                        <span>Don't have an account?</span>
-                        <Link to="/signup" className="auth-link">
-                            Sign up
+                        <span>Already have an account?</span>
+                        <Link to="/login" className="auth-link">
+                            Log in
                         </Link>
                     </div>
 
@@ -124,27 +163,12 @@ function LoginPage() {
                             <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
                             <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
                         </svg>
-                        Sign in with Google
+                        Sign up with Google
                     </button>
-
-                    <div className="features">
-                        <div className="feature-item">
-                            <span className="feature-icon">🎯</span>
-                            <span>Compete in real-time</span>
-                        </div>
-                        <div className="feature-item">
-                            <span className="feature-icon">🏆</span>
-                            <span>Solve Codeforces problems</span>
-                        </div>
-                        <div className="feature-item">
-                            <span className="feature-icon">⚡</span>
-                            <span>Race against friends</span>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
     );
 }
 
-export default LoginPage;
+export default SignupPage;

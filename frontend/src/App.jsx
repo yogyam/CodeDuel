@@ -3,6 +3,8 @@ import { AuthProvider } from './contexts/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
 import PublicLanding from './components/PublicLanding';
+import LoginPage from './components/LoginPage';
+import SignupPage from './components/SignupPage';
 import Dashboard from './components/Dashboard';
 import RoomPage from './components/RoomPage';
 import GameRoom from './components/GameRoom';
@@ -16,8 +18,10 @@ function App() {
       <AuthProvider>
         <BrowserRouter>
           <Routes>
-            {/* Public route */}
+            {/* Public routes */}
             <Route path="/" element={<PublicLanding />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/signup" element={<SignupPage />} />
 
             {/* Protected routes */}
             <Route

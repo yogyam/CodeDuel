@@ -93,6 +93,48 @@ export function AuthProvider({ children }) {
     };
 
     /**
+     * Register with email and password
+     */
+    const registerWithEmail = async (email, password, codeforcesHandle) => {
+        const response = await fetch(`${API_URL}/api/auth/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password, codeforcesHandle })
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Registration failed');
+        }
+
+        const data = await response.json();
+        login(data.token, data.user);
+        window.location.href = '/dashboard';
+        return data;
+    };
+
+    /**
+     * Login with email and password
+     */
+    const loginWithEmail = async (email, password) => {
+        const response = await fetch(`${API_URL}/api/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Login failed');
+        }
+
+        const data = await response.json();
+        login(data.token, data.user);
+        window.location.href = '/dashboard';
+        return data;
+    };
+
+    /**
      * Initiate Google OAuth login
      */
     const loginWithGoogle = () => {
@@ -107,6 +149,8 @@ export function AuthProvider({ children }) {
         login,
         logout,
         loginWithGoogle,
+        registerWithEmail,
+        loginWithEmail,
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
