@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import webSocketService from '../services/WebSocketService';
 import apiService from '../services/apiService';
+import GameFilters from './GameFilters';
 
 /**
  * Game Room Component
@@ -21,7 +22,18 @@ function GameRoom() {
     message: ''
   });
   const [selectedRating, setSelectedRating] = useState(1200);
-  const [isHost, setIsHost] = useState(false);
+  const [gameFilters, setGameFilters] = useState({
+    minDifficulty: 800,
+    maxDifficulty: 1500,
+    tags: []
+  });
+
+  // Derive isHost from gameState instead of separate state
+  const isHost = useMemo(() => {
+    const currentUser = gameState.users.find(u => u.codeforcesHandle === codeforcesHandle);
+    return currentUser?.host || false;
+  }, [gameState.users, codeforcesHandle]);
+
   const [connected, setConnected] = useState(false);
   const [room, setRoom] = useState(null);
   const [currentProblem, setCurrentProblem] = useState(null);
@@ -42,15 +54,8 @@ function GameRoom() {
 
       // Subscribe to room updates
       webSocketService.subscribe(`/topic/room/${roomId}`, (update) => {
-        // Assuming handleRoomUpdate would process the update object
-        // For now, we'll keep the original setGameState and host check logic
+        // Update game state - isHost will be automatically derived via useMemo
         setGameState(update);
-
-        // Check if current user is the host
-        const currentUser = update.users.find(u => u.codeforcesHandle === codeforcesHandle);
-        if (currentUser) {
-          setIsHost(currentUser.host);
-        }
       });
 
       // Join the room
@@ -77,7 +82,9 @@ function GameRoom() {
     if (!isHost) return;
 
     webSocketService.send(`/app/game/${roomId}/start`, {
-      rating: selectedRating
+      minDifficulty: gameFilters.minDifficulty,
+      maxDifficulty: gameFilters.maxDifficulty,
+      tags: gameFilters.tags
     });
   };
 
@@ -146,24 +153,17 @@ function GameRoom() {
         </div>
       </div>
 
-      {/* Start Game Section (Host Only) */}
+
+      {/* Game Filters (Host can edit, others view only) */}
+      <GameFilters
+        onFiltersChange={setGameFilters}
+        isHost={isHost}
+        initialFilters={gameFilters}
+      />
+
+      {/* Start Game Button (Host Only) */}
       {isHost && (
         <div className="card">
-          <h3 className="font-semibold mb-3">Start Game</h3>
-          <div className="mb-4">
-            <label className="block text-sm font-semibold mb-2">
-              Problem Difficulty Rating
-            </label>
-            <select
-              className="input-field w-full"
-              value={selectedRating}
-              onChange={(e) => setSelectedRating(parseInt(e.target.value))}
-            >
-              {difficultyOptions.map(rating => (
-                <option key={rating} value={rating}>{rating}</option>
-              ))}
-            </select>
-          </div>
           <button
             className="btn-primary w-full"
             onClick={handleStartGame}
@@ -207,6 +207,16 @@ function GameRoom() {
             </span>
           ))}
         </div>
+
+        {/* Problem Description */}
+        {gameState.problem?.description && (
+          <div className="bg-white text-gray-900 p-6 rounded-lg mb-4 max-h-[500px] overflow-y-auto">
+            <div
+              className="problem-content"
+              dangerouslySetInnerHTML={{ __html: gameState.problem.description }}
+            />
+          </div>
+        )}
 
         {/* Problem Link */}
         <a

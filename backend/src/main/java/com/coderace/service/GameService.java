@@ -85,10 +85,10 @@ public class GameService {
      * 
      * @param roomId    The room ID
      * @param sessionId Session ID of the user requesting to start
-     * @param rating    Difficulty rating for the problem
+     * @param filter    Problem filter with difficulty range and tags
      * @return true if game started successfully
      */
-    public boolean startGame(String roomId, String sessionId, Integer rating) {
+    public boolean startGame(String roomId, String sessionId, com.coderace.dto.ProblemFilter filter) {
         GameRoom room = activeRooms.get(roomId);
 
         if (room == null) {
@@ -109,23 +109,24 @@ public class GameService {
             return false;
         }
 
-        // Fetch a random problem
-        Problem problem = codeforcesService.fetchRandomProblem(rating);
+        // Fetch a random problem using filters
+        Problem problem = codeforcesService.getFilteredRandomProblem(filter);
         if (problem == null) {
-            log.error("Failed to fetch problem for room {}", roomId);
+            log.error("Failed to fetch problem for room {} with filters: {}", roomId, filter);
             return false;
         }
 
         // Update room state
         room.setCurrentProblem(problem);
-        room.setSelectedRating(rating);
+        room.setSelectedRating(filter.minDifficulty()); // Store min difficulty for reference
         room.setState(GameRoom.GameState.STARTED);
         room.setGameStartTime(Instant.now());
 
         // Update all users' status to SOLVING
         room.getUserList().forEach(u -> u.setStatus(User.UserStatus.SOLVING));
 
-        log.info("Game started in room {} with problem {}", roomId, problem.getProblemId());
+        log.info("Game started in room {} with problem {} (filters: {})",
+                roomId, problem.getProblemId(), filter);
         return true;
     }
 

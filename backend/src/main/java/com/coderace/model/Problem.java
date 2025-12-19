@@ -19,14 +19,15 @@ public class Problem {
     private String type;
     private Integer rating;
     private List<String> tags;
-    
+    private String description; // HTML content of problem statement
+
     /**
      * Returns the full problem URL on Codeforces
      */
     public String getProblemUrl() {
         return "https://codeforces.com/problemset/problem/" + contestId + "/" + index;
     }
-    
+
     /**
      * Returns a unique identifier for this problem
      */

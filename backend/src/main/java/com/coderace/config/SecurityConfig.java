@@ -42,12 +42,12 @@ public class SecurityConfig {
 
                                 // Configure authorization
                                 .authorizeHttpRequests(auth -> auth
-                                                // Public endpoints
-                                                .requestMatchers("/api/auth/**").permitAll()
+                                                // Public auth endpoints (login, register)
+                                                .requestMatchers("/api/auth/login", "/api/auth/register").permitAll()
                                                 .requestMatchers("/ws/**").permitAll()
                                                 .requestMatchers("/login/oauth2/**").permitAll()
                                                 .requestMatchers("/oauth2/**").permitAll()
-                                                // All other endpoints require authentication
+                                                // All other endpoints require authentication (including /api/auth/me)
                                                 .anyRequest().authenticated())
 
                                 // Configure OAuth2 login with custom success handler
