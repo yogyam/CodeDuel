@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import webSocketService from '../services/WebSocketService';
 import apiService from '../services/apiService';
 import GameFilters from './GameFilters';
+import DOMPurify from 'dompurify';
 
 /**
  * Game Room Component
@@ -213,7 +214,7 @@ function GameRoom() {
           <div className="bg-white text-gray-900 p-6 rounded-lg mb-4 max-h-[500px] overflow-y-auto">
             <div
               className="problem-content"
-              dangerouslySetInnerHTML={{ __html: gameState.problem.description }}
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(gameState.problem.description) }}
             />
           </div>
         )}

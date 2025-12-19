@@ -1,6 +1,7 @@
 package com.coderace.config;
 
 import com.coderace.security.JwtAuthenticationFilter;
+import com.coderace.security.RestAuthenticationEntryPoint;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -20,11 +21,14 @@ public class SecurityConfig {
 
         private final JwtAuthenticationFilter jwtAuthenticationFilter;
         private final AuthenticationSuccessHandler oauth2SuccessHandler;
+        private final RestAuthenticationEntryPoint restAuthenticationEntryPoint;
 
         public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
-                        AuthenticationSuccessHandler oauth2SuccessHandler) {
+                        AuthenticationSuccessHandler oauth2SuccessHandler,
+                        RestAuthenticationEntryPoint restAuthenticationEntryPoint) {
                 this.jwtAuthenticationFilter = jwtAuthenticationFilter;
                 this.oauth2SuccessHandler = oauth2SuccessHandler;
+                this.restAuthenticationEntryPoint = restAuthenticationEntryPoint;
         }
 
         @Bean
@@ -49,6 +53,10 @@ public class SecurityConfig {
                                                 .requestMatchers("/oauth2/**").permitAll()
                                                 // All other endpoints require authentication (including /api/auth/me)
                                                 .anyRequest().authenticated())
+
+                                // Configure exception handling - return 401 instead of redirecting
+                                .exceptionHandling(exception -> exception
+                                                .authenticationEntryPoint(restAuthenticationEntryPoint))
 
                                 // Configure OAuth2 login with custom success handler
                                 .oauth2Login(oauth2 -> oauth2

@@ -5,18 +5,9 @@ import apiService from '../services/apiService';
 import './RoomPage.css';
 
 // Validation constants
-const HANDLE_REGEX = /^[a-zA-Z0-9_]{3,24}$/;
 const ROOM_ID_REGEX = /^[A-Z0-9]{6}$/;
 
 // Validation functions
-const validateCodeforcesHandle = (handle) => {
-  if (!handle) return 'Codeforces handle is required';
-  if (!HANDLE_REGEX.test(handle)) {
-    return 'Handle must be 3-24 characters (letters, numbers, underscore only)';
-  }
-  return null;
-};
-
 const validateRoomId = (roomId) => {
   if (!roomId) return 'Room ID is required';
   if (!ROOM_ID_REGEX.test(roomId)) {
@@ -32,16 +23,24 @@ const validateRoomId = (roomId) => {
 function RoomPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [codeforcesHandle, setCodeforcesHandle] = useState(user?.codeforcesHandle || '');
   const [roomId, setRoomId] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // Get handle from authenticated user
+  const codeforcesHandle = user?.codeforcesHandle;
 
   /**
    * Creates a new room
    */
   const handleCreateRoom = async (e) => {
     e.preventDefault();
+
+    if (!codeforcesHandle) {
+      setError('Please set your Codeforces handle in your profile');
+      return;
+    }
+
     setLoading(true);
     setError('');
 
@@ -63,10 +62,8 @@ function RoomPage() {
   const handleJoinRoom = async (e) => {
     e.preventDefault();
 
-    // Validate handle
-    const handleError = validateCodeforcesHandle(codeforcesHandle);
-    if (handleError) {
-      setError(handleError);
+    if (!codeforcesHandle) {
+      setError('Please set your Codeforces handle in your profile');
       return;
     }
 
@@ -112,20 +109,24 @@ function RoomPage() {
           </div>
         )}
 
-        {/* Codeforces Handle Input */}
-        <div className="mb-6">
-          <label className="block text-sm font-semibold mb-2 text-gray-700">
-            Codeforces Handle
-          </label>
-          <input
-            type="text"
-            className="input-field w-full"
-            placeholder="Enter your handle (e.g., tourist)"
-            value={codeforcesHandle}
-            onChange={(e) => setCodeforcesHandle(e.target.value)}
-            disabled={loading}
-          />
-        </div>
+        {/* Logged in as indicator */}
+        {codeforcesHandle ? (
+          <div className="mb-6 p-3 bg-blue-50 rounded-lg border border-blue-200">
+            <p className="text-sm text-gray-700">
+              <span className="font-semibold">Playing as:</span>{' '}
+              <span className="text-blue-600 font-mono">{codeforcesHandle}</span>
+            </p>
+          </div>
+        ) : (
+          <div className="mb-6 p-4 bg-yellow-50 rounded-lg border border-yellow-300">
+            <p className="text-sm text-yellow-800 mb-2">
+              ⚠️ <span className="font-semibold">Codeforces handle not set</span>
+            </p>
+            <p className="text-xs text-yellow-700">
+              Please set your Codeforces handle to create or join rooms.
+            </p>
+          </div>
+        )}
 
         {/* Create Room Button */}
         <button
