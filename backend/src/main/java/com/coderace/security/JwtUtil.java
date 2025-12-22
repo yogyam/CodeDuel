@@ -4,10 +4,12 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Date;
 import java.util.HashMap;
@@ -27,10 +29,28 @@ public class JwtUtil {
     private long expiration;
 
     /**
+     * Validates JWT secret on application startup
+     * Ensures the secret is at least 256 bits (32 bytes) for HS256 algorithm
+     */
+    @PostConstruct
+    public void validateSecret() {
+        if (secret == null || secret.getBytes(StandardCharsets.UTF_8).length < 32) {
+            int actualLength = secret != null ? secret.getBytes(StandardCharsets.UTF_8).length : 0;
+            throw new IllegalStateException(
+                    String.format(
+                            "JWT_SECRET must be at least 256 bits (32 characters). " +
+                                    "Current length: %d bytes. " +
+                                    "Please update your JWT_SECRET environment variable.",
+                            actualLength));
+        }
+        log.info("JWT secret validated successfully ({} bytes)", secret.getBytes(StandardCharsets.UTF_8).length);
+    }
+
+    /**
      * Generates signing key from secret
      */
     private Key getSigningKey() {
-        return Keys.hmacShaKeyFor(secret.getBytes());
+        return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
 
     /**

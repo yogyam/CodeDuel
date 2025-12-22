@@ -5,11 +5,13 @@ import com.coderace.dto.LoginRequest;
 import com.coderace.dto.RegisterRequest;
 import com.coderace.entity.User;
 import com.coderace.service.AuthService;
+import jakarta.validation.constraints.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -19,6 +21,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/auth")
+@Validated
 @Slf4j
 public class AuthController {
 
@@ -114,9 +117,9 @@ public class AuthController {
      * Update Codeforces handle for current user
      */
     @PutMapping("/codeforces-handle")
-    public ResponseEntity<Void> updateCodeforcesHandle(
+    public ResponseEntity<?> updateCodeforcesHandle(
             @AuthenticationPrincipal User user,
-            @RequestParam String handle) {
+            @RequestParam @Pattern(regexp = "^[a-zA-Z0-9_-]{3,24}$", message = "Codeforces handle must be 3-24 characters (alphanumeric, underscore, or hyphen only)") String handle) {
 
         authService.updateCodeforcesHandle(user.getId(), handle);
         return ResponseEntity.ok().build();

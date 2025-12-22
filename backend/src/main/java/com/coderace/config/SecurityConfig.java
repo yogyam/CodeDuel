@@ -1,6 +1,7 @@
 package com.coderace.config;
 
 import com.coderace.security.JwtAuthenticationFilter;
+import com.coderace.security.RateLimitFilter;
 import com.coderace.security.RestAuthenticationEntryPoint;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -20,13 +21,16 @@ import org.springframework.security.web.authentication.AuthenticationSuccessHand
 public class SecurityConfig {
 
         private final JwtAuthenticationFilter jwtAuthenticationFilter;
+        private final RateLimitFilter rateLimitFilter;
         private final AuthenticationSuccessHandler oauth2SuccessHandler;
         private final RestAuthenticationEntryPoint restAuthenticationEntryPoint;
 
         public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
+                        RateLimitFilter rateLimitFilter,
                         AuthenticationSuccessHandler oauth2SuccessHandler,
                         RestAuthenticationEntryPoint restAuthenticationEntryPoint) {
                 this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+                this.rateLimitFilter = rateLimitFilter;
                 this.oauth2SuccessHandler = oauth2SuccessHandler;
                 this.restAuthenticationEntryPoint = restAuthenticationEntryPoint;
         }
@@ -61,6 +65,9 @@ public class SecurityConfig {
                                 // Configure OAuth2 login with custom success handler
                                 .oauth2Login(oauth2 -> oauth2
                                                 .successHandler(oauth2SuccessHandler))
+
+                                // Add Rate Limiting filter (protects auth endpoints from brute-force)
+                                .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)
 
                                 // Add JWT filter
                                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
