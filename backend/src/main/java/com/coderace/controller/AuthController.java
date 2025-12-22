@@ -5,6 +5,7 @@ import com.coderace.dto.LoginRequest;
 import com.coderace.dto.RegisterRequest;
 import com.coderace.entity.User;
 import com.coderace.service.AuthService;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -79,20 +80,16 @@ public class AuthController {
 
             return ResponseEntity.ok(new AuthResponse(token, userInfo));
         } catch (RuntimeException e) {
-            log.error("Login failed: {}", e.getMessage());
+            // Log the actual error for debugging (not sent to client)
+            log.error("Login failed for email {}: {}", request.email(), e.getMessage());
 
-            // Return 404 for email not found to suggest signup
-            if (e.getMessage().contains("Email not found")) {
-                return ResponseEntity
-                        .status(HttpStatus.NOT_FOUND)
-                        .body(Map.of("message", e.getMessage()));
-            }
-
-            // Return 401 for invalid password
+            // SECURITY: Always return generic message to prevent user enumeration
+            // Don't reveal whether email exists or password is wrong
             return ResponseEntity
                     .status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("message", e.getMessage()));
+                    .body(Map.of("message", "Invalid email or password"));
         }
+    }
     }
 
     /**
