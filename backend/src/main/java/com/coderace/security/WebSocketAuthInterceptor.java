@@ -1,6 +1,7 @@
 package com.coderace.security;
 
 import com.coderace.security.JwtUtil;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.simp.stomp.StompCommand;
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Component;
  * Validates JWT tokens on WebSocket CONNECT messages
  */
 @Component
+@Slf4j
 public class WebSocketAuthInterceptor implements ChannelInterceptor {
 
     private final JwtUtil jwtUtil;
@@ -37,21 +39,27 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
                 String token = authHeader.substring(7);
 
                 try {
-                    // Validate token and get user ID
+                    // Validate and extract username from JWT
+                    String username = jwtUtil.getUsernameFromToken(token);
+
                     if (jwtUtil.validateToken(token)) {
-                        Long userId = jwtUtil.getUserIdFromToken(token);
+                        // Store username in WebSocket session attributes for later use
+                        accessor.getSessionAttributes().put("username", username);
+                        log.info("WebSocket authenticated for user: {}", username);
 
                         // Create authentication object
                         Authentication authentication = new UsernamePasswordAuthenticationToken(
-                                userId, null, null);
-
-                        // Set in security context
+                                username, null, null);
                         SecurityContextHolder.getContext().setAuthentication(authentication);
                         accessor.setUser(authentication);
+                        return message;
+                    } else {
+                        log.warn("Invalid JWT token in WebSocket connection");
+                        throw new IllegalArgumentException("Invalid JWT token");
                     }
                 } catch (Exception e) {
-                    // Invalid token - connection will not have authentication
-                    // You can reject the connection here if needed
+                    log.error("WebSocket authentication failed: {}", e.getMessage());
+                    throw new IllegalArgumentException("Authentication failed: " + e.getMessage());
                 }
             }
         }

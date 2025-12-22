@@ -2,9 +2,10 @@ import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import webSocketService from '../services/WebSocketService';
-import apiService from '../services/apiService';
 import GameFilters from './GameFilters';
+import CodeEditor from './CodeEditor';
 import DOMPurify from 'dompurify';
+import './GameRoom.css';
 
 /**
  * Game Room Component
@@ -86,6 +87,21 @@ function GameRoom() {
       minDifficulty: gameFilters.minDifficulty,
       maxDifficulty: gameFilters.maxDifficulty,
       tags: gameFilters.tags
+    });
+  };
+
+  const handleCodeSubmit = async (code, language) => {
+    if (!gameState?.problem?.problemId) {
+      alert('No problem loaded yet!');
+      return;
+    }
+
+    console.log('Submitting code:', { language, codeLength: code.length });
+
+    webSocketService.send(`/app/game/${roomId}/submit`, {
+      code,
+      language,
+      problemId: gameState.problem.problemId
     });
   };
 
@@ -210,12 +226,27 @@ function GameRoom() {
         </div>
 
         {/* Problem Description */}
-        {gameState.problem?.description && (
-          <div className="bg-white text-gray-900 p-6 rounded-lg mb-4 max-h-[500px] overflow-y-auto">
+        {gameState.problem?.description ? (
+          <div className="problem-section bg-white text-gray-900 p-6 rounded-lg mb-4 max-h-[500px] overflow-y-auto">
+            <h3>Problem Description</h3>
             <div
               className="problem-content"
               dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(gameState.problem.description) }}
             />
+          </div>
+        ) : (
+          <div className="problem-section bg-white text-gray-900 p-6 rounded-lg mb-4">
+            <p className="problem-unavailable">
+              ⚠️ Problem description temporarily unavailable.
+              <a
+                href={`https://codeforces.com/problemset/problem/${gameState.problem?.contestId}/${gameState.problem?.index}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ marginLeft: '8px' }}
+              >
+                View on Codeforces →
+              </a>
+            </p>
           </div>
         )}
 
@@ -224,10 +255,22 @@ function GameRoom() {
           href={gameState.problem?.problemUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-block bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-blue-50 transition-colors"
+          className="inline-block bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-blue-50 transition-colors mb-6"
         >
           Solve on Codeforces →
         </a>
+
+        {/* Code Editor - Only show when game is in progress */}
+        {gameState.state === 'STARTED' && (
+          <div className="code-editor-section">
+            <h2 className="text-2xl font-bold mb-4">Code Editor</h2>
+            <CodeEditor
+              onSubmit={handleCodeSubmit}
+              problemId={gameState.problem?.problemId}
+              disabled={false}
+            />
+          </div>
+        )}
       </div>
 
       {/* Status Board */}

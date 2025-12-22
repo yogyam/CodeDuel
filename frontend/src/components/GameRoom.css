@@ -1,0 +1,25 @@
+/* GameRoom component styles */
+
+.code-editor-section {
+    margin-top: 24px;
+}
+
+.code-editor-section h2 {
+    color: white;
+    margin-bottom: 16px;
+}
+
+.problem-unavailable {
+    color: #666;
+    font-size: 14px;
+}
+
+.problem-unavailable a {
+    color: #3b82f6;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.problem-unavailable a:hover {
+    text-decoration: underline;
+}

@@ -90,7 +90,6 @@ public class AuthController {
                     .body(Map.of("message", "Invalid email or password"));
         }
     }
-    }
 
     /**
      * Get current authenticated user info

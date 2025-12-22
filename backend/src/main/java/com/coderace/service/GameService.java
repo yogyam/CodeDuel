@@ -28,13 +28,29 @@ public class GameService {
 
     private final CodeforcesService codeforcesService;
     private final SimpMessagingTemplate messagingTemplate;
+    private final CodeExecutionService codeExecutionService;
+    private final SubmissionService submissionService;
+    private final com.coderace.repository.UserRepository userRepository;
+    private final com.coderace.repository.TestCaseRepository testCaseRepository;
+    private final ProblemGenerationService problemGenerationService;
 
     @Value("${codeforces.polling.interval:5000}")
     private long pollingInterval;
 
-    public GameService(CodeforcesService codeforcesService, SimpMessagingTemplate messagingTemplate) {
+    public GameService(CodeforcesService codeforcesService,
+            SimpMessagingTemplate messagingTemplate,
+            CodeExecutionService codeExecutionService,
+            SubmissionService submissionService,
+            com.coderace.repository.UserRepository userRepository,
+            com.coderace.repository.TestCaseRepository testCaseRepository,
+            ProblemGenerationService problemGenerationService) {
         this.codeforcesService = codeforcesService;
         this.messagingTemplate = messagingTemplate;
+        this.codeExecutionService = codeExecutionService;
+        this.submissionService = submissionService;
+        this.userRepository = userRepository;
+        this.testCaseRepository = testCaseRepository;
+        this.problemGenerationService = problemGenerationService;
     }
 
     /**
@@ -109,10 +125,12 @@ public class GameService {
             return false;
         }
 
-        // Fetch a random problem using filters
-        Problem problem = codeforcesService.getFilteredRandomProblem(filter);
-        if (problem == null) {
-            log.error("Failed to fetch problem for room {} with filters: {}", roomId, filter);
+        // Generate problem using Gemini AI
+        Problem problem;
+        try {
+            problem = problemGenerationService.generateProblem(filter);
+        } catch (Exception e) {
+            log.error("Failed to generate problem for room {} with filters: {}", roomId, filter, e);
             return false;
         }
 
@@ -125,7 +143,7 @@ public class GameService {
         // Update all users' status to SOLVING
         room.getUserList().forEach(u -> u.setStatus(User.UserStatus.SOLVING));
 
-        log.info("Game started in room {} with problem {} (filters: {})",
+        log.info("Game started in room {} with generated problem {} (filters: {})",
                 roomId, problem.getProblemId(), filter);
         return true;
     }
@@ -164,7 +182,10 @@ public class GameService {
     }
 
     /**
-     * Scheduled task that polls Codeforces API to check for winners
+     * DEPRECATED: Disabled in favor of in-browser IDE system
+     * Old polling system that checked Codeforces API for solutions
+     * 
+     * Periodically checks for game winners by polling Codeforces API
      * Runs every 5 seconds (configurable via application.properties)
      * 
      * For each active game:
@@ -174,65 +195,96 @@ public class GameService {
      * winner
      * 4. Broadcast winner announcement to all users in the room
      */
-    @Scheduled(fixedDelayString = "${codeforces.polling.interval:5000}")
-    public void checkForWinners() {
-        // Iterate through all active rooms
-        activeRooms.values().stream()
-                .filter(room -> room.getState() == GameRoom.GameState.STARTED)
-                .forEach(this::checkRoomForWinner);
-    }
+    // @Scheduled(fixedDelayString = "${codeforces.polling.interval:5000}")
+    // public void checkForWinners() {
+    // // Disabled - using in-browser IDE with Piston API instead
+    // }
+
+    // /**
+    // * Checks a specific room for winners
+    // * Synchronized on the room object to prevent race conditions
+    // *
+    // * @param room The room to check
+    // */
+    // private void checkRoomForWinner(GameRoom room) {
+    // // Disabled - using in-browser IDE with Piston API instead
+    // }
 
     /**
-     * Checks a specific room for winners
-     * Synchronized on the room object to prevent race conditions
+     * Handles code submission from a user in a game room
+     * Executes code against test cases and updates game state
      * 
-     * @param room The room to check
+     * @param roomId    Room ID
+     * @param sessionId User's session ID
+     * @param username  Authenticated username
+     * @param code      Submitted code
+     * @param language  Programming language
+     * @return Submission verdict
      */
-    private void checkRoomForWinner(GameRoom room) {
-        // Skip if game already finished
-        if (room.getState() == GameRoom.GameState.FINISHED) {
-            return;
+    public com.coderace.dto.SubmissionVerdict handleCodeSubmission(
+            String roomId, String sessionId, String username, String code, String language) {
+
+        GameRoom room = activeRooms.get(roomId);
+        if (room == null) {
+            throw new IllegalArgumentException("Room not found: " + roomId);
         }
 
+        if (room.getState() != GameRoom.GameState.STARTED) {
+            throw new IllegalStateException("Game not started");
+        }
+
+        // Find the user
+        User user = room.getUserList().stream()
+                .filter(u -> u.getSessionId().equals(sessionId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("User not in room"));
+
         String problemId = room.getCurrentProblem().getProblemId();
-        Instant gameStartTime = room.getGameStartTime();
 
-        // Check each user's submissions
-        for (User user : room.getUserList()) {
-            if (user.getStatus() == User.UserStatus.WON) {
-                continue; // Skip users who already won
-            }
+        // Get test cases for this problem
+        java.util.List<com.coderace.model.TestCase> testCases = testCaseRepository.findByProblemId(problemId);
 
-            boolean solved = codeforcesService.hasUserSolvedProblem(
-                    user.getCodeforcesHandle(),
-                    problemId,
-                    gameStartTime);
+        // For MVP: If no test cases, create a dummy one (temporary until LLM generation
+        // works)
+        if (testCases.isEmpty()) {
+            log.warn("No test cases found for problem {}. Using dummy test case.", problemId);
+            com.coderace.model.TestCase dummy = new com.coderace.model.TestCase();
+            dummy.setProblemId(problemId);
+            dummy.setInput("1");
+            dummy.setExpectedOutput("1");
+            dummy.setType("DUMMY");
+            dummy.setIsHidden(false);
+            testCases = java.util.List.of(dummy);
+        }
 
-            if (solved) {
-                // Synchronize on room to prevent multiple winners
-                synchronized (room) {
-                    // Double-check game state after acquiring lock
-                    if (room.getState() == GameRoom.GameState.FINISHED) {
-                        return;
-                    }
+        log.info("Executing code for user {} in room {}. Testing against {} test cases",
+                user.getCodeforcesHandle(), roomId, testCases.size());
 
-                    // Declare winner
+        // Execute code against test cases
+        com.coderace.dto.SubmissionVerdict verdict = codeExecutionService.verifySubmission(code, language, testCases);
+
+        // Find the authenticated user entity for saving submission
+        com.coderace.entity.User userEntity = userRepository
+                .findByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("User not found in database: " + username));
+
+        // Save submission
+        submissionService.saveSubmission(userEntity, roomId, problemId, code, language, verdict);
+
+        // Check if user won
+        if (verdict.isAccepted()) {
+            synchronized (room) {
+                if (room.getState() == GameRoom.GameState.STARTED) {
                     user.setStatus(User.UserStatus.WON);
-                    room.setWinnerId(user.getSessionId());
+                    room.setWinnerId(sessionId);
                     room.setState(GameRoom.GameState.FINISHED);
 
-                    log.info("User {} won the game in room {}!", user.getCodeforcesHandle(), room.getRoomId());
-
-                    // Broadcast winner announcement directly
-                    GameStateUpdate update = new GameStateUpdate(
-                            room,
-                            user.getCodeforcesHandle() + " won the race!");
-
-                    messagingTemplate.convertAndSend("/topic/room/" + room.getRoomId(), update);
-                    return; // Exit after declaring winner
+                    log.info("User {} won in room {}!", user.getCodeforcesHandle(), roomId);
                 }
             }
         }
+
+        return verdict;
     }
 
     /**

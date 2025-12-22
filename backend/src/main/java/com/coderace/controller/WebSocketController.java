@@ -130,4 +130,55 @@ public class WebSocketController {
         messagingTemplate.convertAndSend("/topic/room/" + roomId, update);
         log.info("Game started and broadcasted to room {}", roomId);
     }
+
+    /**
+     * Handles code submission from a user
+     * Path: /app/game/{roomId}/submit
+     * Broadcast destination: /topic/room/{roomId}
+     * 
+     * @param roomId         Room ID
+     * @param request        Code submission request
+     * @param headerAccessor Session accessor
+     */
+    @MessageMapping("/game/{roomId}/submit")
+    public void submitCode(@DestinationVariable String roomId,
+            @Payload com.coderace.dto.SubmitCodeRequest request,
+            SimpMessageHeaderAccessor headerAccessor) {
+
+        String sessionId = headerAccessor.getSessionId();
+
+        // Get authenticated username from session attributes
+        String username = (String) headerAccessor.getSessionAttributes().get("username");
+
+        log.info("Received code submission for room {} from session {} (user: {})",
+                roomId, sessionId, username);
+
+        try {
+            // Submit code and get verdict
+            com.coderace.dto.SubmissionVerdict verdict = gameService.handleCodeSubmission(
+                    roomId, sessionId, username, request.getCode(), request.getLanguage());
+
+            // Broadcast submission result
+            GameStateUpdate update = new GameStateUpdate(
+                    gameService.getRoom(roomId),
+                    verdict.isAccepted() ? "Code accepted! You won!"
+                            : String.format("Tests passed: %d/%d", verdict.getTestsPassed(), verdict.getTotalTests()));
+
+            messagingTemplate.convertAndSend("/topic/room/" + roomId, update);
+
+            log.info("Submission processed for room {}: verdict={}, {}/{} tests passed",
+                    roomId, verdict.getVerdict(), verdict.getTestsPassed(), verdict.getTotalTests());
+
+        } catch (Exception e) {
+            log.error("Error processing submission in room {}: {}", roomId, e.getMessage(), e);
+
+            GameRoom room = gameService.getRoom(roomId);
+            if (room != null) {
+                GameStateUpdate errorUpdate = new GameStateUpdate(
+                        room,
+                        "Submission error: " + e.getMessage());
+                messagingTemplate.convertAndSend("/topic/room/" + roomId, errorUpdate);
+            }
+        }
+    }
 }

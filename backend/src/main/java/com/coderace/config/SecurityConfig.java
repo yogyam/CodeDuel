@@ -3,6 +3,7 @@ package com.coderace.config;
 import com.coderace.security.JwtAuthenticationFilter;
 import com.coderace.security.RateLimitFilter;
 import com.coderace.security.RestAuthenticationEntryPoint;
+import com.coderace.security.SecurityHeadersFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -22,15 +23,18 @@ public class SecurityConfig {
 
         private final JwtAuthenticationFilter jwtAuthenticationFilter;
         private final RateLimitFilter rateLimitFilter;
+        private final SecurityHeadersFilter securityHeadersFilter;
         private final AuthenticationSuccessHandler oauth2SuccessHandler;
         private final RestAuthenticationEntryPoint restAuthenticationEntryPoint;
 
         public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
                         RateLimitFilter rateLimitFilter,
+                        SecurityHeadersFilter securityHeadersFilter,
                         AuthenticationSuccessHandler oauth2SuccessHandler,
                         RestAuthenticationEntryPoint restAuthenticationEntryPoint) {
                 this.jwtAuthenticationFilter = jwtAuthenticationFilter;
                 this.rateLimitFilter = rateLimitFilter;
+                this.securityHeadersFilter = securityHeadersFilter;
                 this.oauth2SuccessHandler = oauth2SuccessHandler;
                 this.restAuthenticationEntryPoint = restAuthenticationEntryPoint;
         }
@@ -65,6 +69,9 @@ public class SecurityConfig {
                                 // Configure OAuth2 login with custom success handler
                                 .oauth2Login(oauth2 -> oauth2
                                                 .successHandler(oauth2SuccessHandler))
+
+                                // Add Security Headers filter (first - applies to all responses)
+                                .addFilterBefore(securityHeadersFilter, UsernamePasswordAuthenticationFilter.class)
 
                                 // Add Rate Limiting filter (protects auth endpoints from brute-force)
                                 .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)

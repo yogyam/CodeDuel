@@ -2,12 +2,14 @@ package com.coderace.service;
 
 import com.coderace.dto.ProblemFilter;
 import com.coderace.model.Problem;
+import com.coderace.model.TestCase;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
@@ -15,7 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -154,71 +156,8 @@ public class CodeforcesService {
         return getFilteredRandomProblem(filter);
     }
 
-    /**
-     * Checks if a user has solved a specific problem after the game start time
-     * Uses the user.status API method
-     * Retries up to 3 times with 2-second delay on failure
-     * 
-     * @param handle        Codeforces handle
-     * @param problemId     Problem ID (contestId + index, e.g., "1234A")
-     * @param gameStartTime The time when the game started
-     * @return true if user has an OK submission for this problem after game start
-     */
-    @Retryable(value = { RestClientException.class }, maxAttempts = 3, backoff = @Backoff(delay = 2000))
-    public boolean hasUserSolvedProblem(String handle, String problemId, Instant gameStartTime) {
-        try {
-            String url = baseUrl + "/user.status?handle=" + handle + "&from=1&count=100";
-            log.debug("Checking submissions for user: {}", handle);
-
-            String response = restTemplate.getForObject(url, String.class);
-            JsonNode root = objectMapper.readTree(response);
-
-            // Check if API call was successful
-            if (!"OK".equals(root.get("status").asText())) {
-                log.error("Codeforces API error for user {}: {}", handle, root.get("comment").asText());
-                return false;
-            }
-
-            // Extract submissions array
-            JsonNode submissionsArray = root.get("result");
-
-            for (JsonNode submission : submissionsArray) {
-                // Check if submission is for the current problem
-                JsonNode problemNode = submission.get("problem");
-                String submittedProblemId = problemNode.get("contestId").asText() +
-                        problemNode.get("index").asText();
-
-                if (!submittedProblemId.equals(problemId)) {
-                    continue;
-                }
-
-                // Check if submission was made after game start
-                long submissionTime = submission.get("creationTimeSeconds").asLong();
-                Instant submissionInstant = Instant.ofEpochSecond(submissionTime);
-
-                if (submissionInstant.isBefore(gameStartTime)) {
-                    continue;
-                }
-
-                // Check if verdict is OK
-                String verdict = submission.get("verdict").asText();
-                if ("OK".equals(verdict)) {
-                    log.info("User {} has solved problem {} with OK verdict", handle, problemId);
-                    return true;
-                }
-            }
-
-            return false;
-
-        } catch (RestClientException e) {
-            log.error("REST client error checking user {} status for problem {}: {}", handle, problemId,
-                    e.getMessage());
-            throw e; // Rethrow to trigger retry
-        } catch (Exception e) {
-            log.error("Unexpected error checking user {} status for problem {}: ", handle, problemId, e);
-            return false;
-        }
-    }
+    // Removed hasUserSolvedProblem - Using in-browser IDE instead of Codeforces
+    // polling
 
     /**
      * Gets a list of recommended difficulty ratings
@@ -228,48 +167,149 @@ public class CodeforcesService {
     }
 
     /**
-     * Fetches the problem description HTML from Codeforces problem page
-     * Uses Jsoup to parse HTML and extract the problem statement
+     * Fetches the problem description HTML and sample test cases from Codeforces
+     * Uses Jsoup to scrape the problem page with enhanced headers to bypass 403
+     * errors
      * 
      * @param contestId The contest ID
      * @param index     The problem index (A, B, C, etc.)
      * @return HTML content of the problem statement, or null if error
      */
-    public String fetchProblemDescription(String contestId, String index) {
+    private String fetchProblemDescription(String contestId, String index) {
+        int maxRetries = 3;
+
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                String url = "https://codeforces.com/problemset/problem/" + contestId + "/" + index;
+                log.info("Fetching problem description from: {} (attempt {}/{})", url, attempt, maxRetries);
+
+                // Add delay between retries to avoid rate limiting
+                if (attempt > 1) {
+                    Thread.sleep(2000 * attempt); // 2s, 4s, 6s
+                }
+
+                // Fetch and parse the HTML page with enhanced browser-like headers
+                Document doc = Jsoup.connect(url)
+                        .userAgent(
+                                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                        .header("Accept",
+                                "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8")
+                        .header("Accept-Language", "en-US,en;q=0.9")
+                        .header("Accept-Encoding", "gzip, deflate, br")
+                        .header("Connection", "keep-alive")
+                        .header("Upgrade-Insecure-Requests", "1")
+                        .header("Sec-Fetch-Dest", "document")
+                        .header("Sec-Fetch-Mode", "navigate")
+                        .header("Sec-Fetch-Site", "none")
+                        .header("Cache-Control", "max-age=0")
+                        .referrer("https://codeforces.com/problemset")
+                        .timeout(15000) // 15 second timeout
+                        .followRedirects(true)
+                        .get();
+
+                // Extract the problem statement div
+                Element problemStatement = doc.selectFirst("div.problem-statement");
+
+                if (problemStatement == null) {
+                    log.error("Could not find problem statement div for problem {}{}", contestId, index);
+                    return null;
+                }
+
+                // Get the HTML content of the problem statement
+                String html = problemStatement.html();
+
+                log.info("Successfully fetched description for problem {}{} ({} chars)",
+                        contestId, index, html.length());
+                return html;
+
+            } catch (org.jsoup.HttpStatusException e) {
+                if (e.getStatusCode() == 403) {
+                    log.warn("HTTP 403 for {}{} on attempt {}/{}", contestId, index, attempt, maxRetries);
+                    if (attempt == maxRetries) {
+                        log.error("Failed to fetch after {} attempts - Codeforces blocking requests", maxRetries);
+                        return null;
+                    }
+                } else {
+                    log.error("HTTP error fetching {}{}: Status={}", contestId, index, e.getStatusCode());
+                    return null;
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                log.error("Interrupted while waiting between retries");
+                return null;
+            } catch (Exception e) {
+                log.error("Error fetching problem description for {}{}: {}", contestId, index, e.getMessage());
+                if (attempt == maxRetries) {
+                    return null;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Scrapes sample test cases from Codeforces problem page
+     * Returns list of TestCase objects with input/output pairs
+     * 
+     * @param contestId The contest ID
+     * @param index     The problem index
+     * @return List of sample test cases
+     */
+    public List<TestCase> scrapeSampleTestCases(String contestId, String index) {
+        List<TestCase> testCases = new ArrayList<>();
+
         try {
             String url = "https://codeforces.com/problemset/problem/" + contestId + "/" + index;
-            log.info("Fetching problem description from: {}", url);
+            log.info("Scraping sample test cases from: {}", url);
 
-            // Fetch and parse the HTML page with browser-like headers
             Document doc = Jsoup.connect(url)
                     .userAgent(
-                            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-                    .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8")
-                    .header("Accept-Language", "en-US,en;q=0.5")
+                            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                    .header("Accept",
+                            "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8")
+                    .header("Accept-Language", "en-US,en;q=0.9")
                     .header("Accept-Encoding", "gzip, deflate, br")
                     .header("Connection", "keep-alive")
-                    .timeout(10000) // 10 second timeout
+                    .header("Upgrade-Insecure-Requests", "1")
+                    .header("Sec-Fetch-Dest", "document")
+                    .header("Sec-Fetch-Mode", "navigate")
+                    .header("Sec-Fetch-Site", "none")
+                    .referrer("https://codeforces.com/problemset")
+                    .timeout(15000)
+                    .followRedirects(true)
                     .get();
 
-            // Extract the problem statement div
-            Element problemStatement = doc.selectFirst("div.problem-statement");
+            // Find sample test sections
+            Elements inputDivs = doc.select("div.input pre");
+            Elements outputDivs = doc.select("div.output pre");
 
-            if (problemStatement == null) {
-                log.error("Could not find problem statement div for problem {}{}", contestId, index);
-                return null;
+            int count = Math.min(inputDivs.size(), outputDivs.size());
+            String problemId = contestId + index;
+
+            for (int i = 0; i < count; i++) {
+                String input = inputDivs.get(i).text();
+                String output = outputDivs.get(i).text();
+
+                TestCase testCase = new TestCase();
+                testCase.setProblemId(problemId);
+                testCase.setInput(input);
+                testCase.setExpectedOutput(output);
+                testCase.setType("SAMPLE");
+                testCase.setIsHidden(false);
+                testCase.setCreatedAt(LocalDateTime.now());
+
+                testCases.add(testCase);
+                log.info("Scraped sample test case {} for problem {}{}", i + 1, contestId, index);
             }
 
-            // Get the HTML content of the problem statement
-            String html = problemStatement.html();
-
-            log.info("Successfully fetched description for problem {}{} ({} chars)",
-                    contestId, index, html.length());
-            return html;
+            log.info("Successfully scraped {} sample test cases for problem {}{}", count, contestId, index);
 
         } catch (Exception e) {
-            log.error("Error fetching problem description for {}{}: {}", contestId, index, e.getMessage());
-            return null;
+            log.error("Error scraping test cases for {}{}: {}", contestId, index, e.getMessage());
         }
+
+        return testCases;
     }
 
     /**
