@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
@@ -39,12 +40,14 @@ public class ProblemGenerationService {
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
     private final TestCaseRepository testCaseRepository;
+    private final SimpMessagingTemplate messagingTemplate;
 
     public ProblemGenerationService(RestTemplate restTemplate, ObjectMapper objectMapper,
-            TestCaseRepository testCaseRepository) {
+            TestCaseRepository testCaseRepository, SimpMessagingTemplate messagingTemplate) {
         this.restTemplate = restTemplate;
         this.objectMapper = objectMapper;
         this.testCaseRepository = testCaseRepository;
+        this.messagingTemplate = messagingTemplate;
     }
 
     /**
@@ -54,30 +57,47 @@ public class ProblemGenerationService {
      * @return Generated problem with test cases
      */
     @Transactional
-    public Problem generateProblem(ProblemFilter filter) {
+    public Problem generateProblem(ProblemFilter filter, String roomId) {
         log.info("Generating problem with Gemini: difficulty={}, tags={}",
                 filter.minDifficulty(), filter.tags());
 
         try {
-            // Build prompt for Gemini
+            // Step 1: Building prompt
+            broadcastStatus(roomId, "Building problem prompt...");
             String prompt = buildPrompt(filter);
 
-            // Call Gemini API
+            // Step 2: Calling Gemini API
+            broadcastStatus(roomId, "Generating problem with AI (this may take 10-30s)...");
             GeneratedProblemResponse geminiResponse = callGeminiAPI(prompt);
 
-            // Convert to Problem entity
+            // Step 3: Converting to problem
+            broadcastStatus(roomId, "Processing problem details...");
             Problem problem = convertToProblem(geminiResponse, filter);
 
-            // Save test cases
+            // Step 4: Saving test cases
+            broadcastStatus(roomId, "Creating test cases...");
             saveTestCases(problem, geminiResponse);
 
+            broadcastStatus(roomId, "Problem ready!");
             log.info("Successfully generated problem: {}", problem.getName());
             return problem;
 
         } catch (Exception e) {
+            broadcastStatus(roomId, "Failed to generate problem");
             log.error("Failed to generate problem: {}", e.getMessage(), e);
             throw new RuntimeException("Problem generation failed: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Broadcast generation status to room
+     */
+    private void broadcastStatus(String roomId, String status) {
+        Map<String, String> statusMessage = Map.of(
+                "type", "GENERATION_STATUS",
+                "status", status);
+        messagingTemplate.convertAndSend("/topic/room/" + roomId, statusMessage);
+        log.info("[Room {}] {}", roomId, status);
     }
 
     /**
@@ -203,20 +223,26 @@ public class ProblemGenerationService {
      * Extract JSON from markdown code blocks
      */
     private String extractJsonFromMarkdown(String content) {
+        // Log original content for debugging
+        log.debug("Raw Gemini response (first 200 chars): {}", content.substring(0, Math.min(200, content.length())));
+
         // Remove markdown code blocks if present
-        if (content.contains("```json")) {
-            int start = content.indexOf("```json") + 7;
-            int end = content.lastIndexOf("```");
-            if (start > 7 && end > start) {
-                return content.substring(start, end).trim();
-            }
-        } else if (content.contains("```")) {
-            int start = content.indexOf("```") + 3;
-            int end = content.lastIndexOf("```");
-            if (start > 3 && end > start) {
-                return content.substring(start, end).trim();
+        if (content.trim().startsWith("```")) {
+            // Find the start of JSON (after ```json or just ```)
+            int start = content.indexOf("```");
+            start = content.indexOf("\n", start) + 1; // Move to next line after ```
+
+            // Find the ending ```
+            int end = content.indexOf("```", start);
+
+            if (end > start) {
+                String extracted = content.substring(start, end).trim();
+                log.debug("Extracted JSON from markdown (first 200 chars): {}",
+                        extracted.substring(0, Math.min(200, extracted.length())));
+                return extracted;
             }
         }
+
         return content.trim();
     }
 

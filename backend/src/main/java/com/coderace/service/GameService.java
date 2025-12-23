@@ -122,7 +122,7 @@ public class GameService {
         // Generate problem using Gemini AI
         Problem problem;
         try {
-            problem = problemGenerationService.generateProblem(filter);
+            problem = problemGenerationService.generateProblem(filter, roomId);
         } catch (Exception e) {
             log.error("Failed to generate problem for room {} with filters: {}", roomId, filter, e);
             return false;
