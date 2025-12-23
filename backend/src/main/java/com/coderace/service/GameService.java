@@ -26,7 +26,6 @@ public class GameService {
     // In-memory storage for active game rooms
     private final ConcurrentHashMap<String, GameRoom> activeRooms = new ConcurrentHashMap<>();
 
-    private final CodeforcesService codeforcesService;
     private final SimpMessagingTemplate messagingTemplate;
     private final CodeExecutionService codeExecutionService;
     private final SubmissionService submissionService;
@@ -34,17 +33,12 @@ public class GameService {
     private final com.coderace.repository.TestCaseRepository testCaseRepository;
     private final ProblemGenerationService problemGenerationService;
 
-    @Value("${codeforces.polling.interval:5000}")
-    private long pollingInterval;
-
-    public GameService(CodeforcesService codeforcesService,
-            SimpMessagingTemplate messagingTemplate,
+    public GameService(SimpMessagingTemplate messagingTemplate,
             CodeExecutionService codeExecutionService,
             SubmissionService submissionService,
             com.coderace.repository.UserRepository userRepository,
             com.coderace.repository.TestCaseRepository testCaseRepository,
             ProblemGenerationService problemGenerationService) {
-        this.codeforcesService = codeforcesService;
         this.messagingTemplate = messagingTemplate;
         this.codeExecutionService = codeExecutionService;
         this.submissionService = submissionService;
