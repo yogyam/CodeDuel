@@ -93,26 +93,15 @@ public class WebSocketController {
         log.info("Start game request for room {} with filters: {} by session {}",
                 roomId, request, sessionId);
 
-        // Create ProblemFilter from the request
-        // Support both legacy rating field and new filter fields
+        // Create ProblemFilter from the request description
         com.coderace.dto.ProblemFilter filter;
-        if (request.getMinDifficulty() != null && request.getMaxDifficulty() != null) {
-            // Use new filter fields
-            filter = new com.coderace.dto.ProblemFilter(
-                    request.getMinDifficulty(),
-                    request.getMaxDifficulty(),
-                    request.getTags() != null ? request.getTags() : List.of());
-        } else if (request.getRating() != null) {
-            // Fallback to legacy rating field (treat as both min and max)
-            filter = new com.coderace.dto.ProblemFilter(
-                    request.getRating(),
-                    request.getRating(),
-                    List.of());
+        if (request.getDescription() != null && !request.getDescription().trim().isEmpty()) {
+            // Use user's description
+            filter = new com.coderace.dto.ProblemFilter(request.getDescription());
         } else {
-            // No filter specified, use default
+            // No description specified, use default
             filter = com.coderace.dto.ProblemFilter.noFilter();
         }
-
         // Start the game (fetches problem and updates state)
         boolean started = gameService.startGame(roomId, sessionId, filter);
 

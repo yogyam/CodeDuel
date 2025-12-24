@@ -13,8 +13,5 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class StartGameRequest {
-    private Integer rating; // Kept for backward compatibility
-    private Integer minDifficulty;
-    private Integer maxDifficulty;
-    private List<String> tags;
+    private String description; // Free-form description of the desired problem
 }

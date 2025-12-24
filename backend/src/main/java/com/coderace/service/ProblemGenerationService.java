@@ -28,14 +28,20 @@ import java.util.stream.Collectors;
 @Slf4j
 public class ProblemGenerationService {
 
-    @Value("${gemini.api.key}")
+    @Value("${openai.api.key}")
     private String apiKey;
 
-    @Value("${gemini.api.url}")
+    @Value("${openai.api.url}")
     private String apiUrl;
 
-    @Value("${gemini.temperature:0.7}")
+    @Value("${openai.model}")
+    private String model;
+
+    @Value("${openai.temperature:0.7}")
     private double temperature;
+
+    @Value("${openai.max.tokens:4000}")
+    private int maxTokens;
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
@@ -58,8 +64,7 @@ public class ProblemGenerationService {
      */
     @Transactional
     public Problem generateProblem(ProblemFilter filter, String roomId) {
-        log.info("Generating problem with Gemini: difficulty={}, tags={}",
-                filter.minDifficulty(), filter.tags());
+        log.info("Generating problem with description: {}", filter.description());
 
         try {
             // Step 1: Building prompt
@@ -68,15 +73,15 @@ public class ProblemGenerationService {
 
             // Step 2: Calling Gemini API
             broadcastStatus(roomId, "Generating problem with AI (this may take 10-30s)...");
-            GeneratedProblemResponse geminiResponse = callGeminiAPI(prompt);
+            GeneratedProblemResponse response = callOpenAI(prompt);
 
             // Step 3: Converting to problem
             broadcastStatus(roomId, "Processing problem details...");
-            Problem problem = convertToProblem(geminiResponse, filter);
+            Problem problem = convertToProblem(response, filter);
 
             // Step 4: Saving test cases
             broadcastStatus(roomId, "Creating test cases...");
-            saveTestCases(problem, geminiResponse);
+            saveTestCases(problem, response);
 
             broadcastStatus(roomId, "Problem ready!");
             log.info("Successfully generated problem: {}", problem.getName());
@@ -101,121 +106,160 @@ public class ProblemGenerationService {
     }
 
     /**
-     * Build the prompt for Gemini API
+     * Build the prompt for OpenAI API
      */
     private String buildPrompt(ProblemFilter filter) {
-        int difficulty = (filter.minDifficulty() + filter.maxDifficulty()) / 2;
-        String difficultyLevel = getDifficultyLevel(difficulty);
-        String tags = filter.tags().isEmpty() ? "general algorithms" : String.join(", ", filter.tags());
+        String userDescription = filter.hasDescription()
+                ? filter.description()
+                : "a general competitive programming problem";
 
-        return String.format("""
-                Generate a competitive programming problem with the following specifications:
+        return String.format(
+                """
+                        You are an expert competitive programming problem setter. Generate a HIGH-QUALITY competitive programming problem based on:
+                        "%s"
 
-                Difficulty: %d (%s level)
-                Topics: %s
+                        CRITICAL REQUIREMENTS:
+                        1. The problem MUST be SOLVABLE and ALGORITHMICALLY SOUND
+                        2. DO NOT ask students to simply "implement X algorithm" - instead, create a scenario that REQUIRES that algorithm
+                        3. Test cases MUST NOT contradict the stated constraints
+                        4. Include explicit time/space complexity requirements when relevant
+                        5. All test outputs must be VERIFIED CORRECT
 
-                Requirements:
-                1. **Problem Statement**: Write a clear, engaging problem (200-400 words) with a real-world scenario
-                2. **Input Format**: Precise specification of input format
-                3. **Output Format**: Precise specification of output format
-                4. **Constraints**: List all constraints (input size, time limits, etc.)
-                5. **Sample Test Cases**: Provide 2-3 examples with step-by-step explanations
-                6. **Hidden Test Cases**: Generate 10 test cases covering:
-                   - Basic cases (2 tests)
-                   - Edge cases (3 tests: empty, minimum, maximum)
-                   - Corner cases (3 tests)
-                   - Random cases (2 tests)
+                        PROBLEM DESIGN GUIDELINES:
+                        - Create a creative real-world scenario or story
+                        - The problem should test UNDERSTANDING, not just memorization
+                        - Add a twist or variation to make it interesting (e.g., "find FIRST occurrence" instead of just "find element")
+                        - Make it challenging but not impossible for intermediate programmers
 
-                Format your response as valid JSON:
-                {
-                  "title": "Problem Title (creative and engaging)",
-                  "description": "Full problem statement with HTML formatting (<p>, <strong>, <code>, etc.)",
-                  "inputFormat": "Input specification",
-                  "outputFormat": "Output specification",
-                  "constraints": ["constraint1", "constraint2", ...],
-                  "sampleTests": [
-                    {"input": "test input", "output": "expected output", "explanation": "why this output"}
-                  ],
-                  "hiddenTests": [
-                    {"input": "test input", "output": "expected output"}
-                  ],
-                  "difficulty": %d,
-                  "tags": ["%s"]
-                }
+                        FORMAT SPECIFICATIONS:
 
-                Important:
-                - Make the problem interesting and fun to solve
-                - Ensure test cases cover all edge cases
-                - Verify all outputs are correct
-                - Use proper HTML formatting in description
-                """, difficulty, difficultyLevel, tags, difficulty, tags);
+                        **Problem Statement** (300-500 words):
+                        - Engaging scenario with clear context
+                        - Precise problem requirements
+                        - Include sample walkthrough with small example
+
+                        **Input Format**:
+                        - Exact specification of each line
+                        - Specify data types and order clearly
+
+                        **Output Format**:
+                        - Exact specification of output
+                        - Specify formatting (e.g., space-separated, new lines)
+
+                        **Constraints**:
+                        - List ALL constraints with exact bounds
+                        - Include time/space complexity if algorithm-specific (e.g., "Your solution must run in O(log n) time")
+
+                        **Sample Test Cases** (2-3 examples):
+                        - Each must include: input, output, AND step-by-step explanation
+                        - Explanation should walk through the algorithm/logic
+                        - Cover different scenarios (normal case, edge case, etc.)
+
+                        **Hidden Test Cases** (exactly 10):
+                        - Test 1-2: Basic/normal cases
+                        - Test 3-5: Edge cases (but MUST comply with constraints!)
+                          * If constraints say n≥1, do NOT use n=0
+                          * Test minimum and maximum bounds AS STATED in constraints
+                        - Test 6-8: Corner cases (e.g., all same elements, alternating pattern)
+                        - Test 9-10: Random valid cases
+
+                        VERIFICATION CHECKLIST (verify before outputting):
+                        ✓ All test inputs satisfy the stated constraints
+                        ✓ All test outputs are algorithmically correct
+                        ✓ Problem requires the specified concept/algorithm
+                        ✓ Problem is not just "implement X"
+                        ✓ Time/space complexity stated if relevant
+                        ✓ Sample explanations walk through the solution
+
+                        Return ONLY valid JSON (no markdown code fences):
+                        {
+                          "title": "Creative, engaging title",
+                          "description": "Full problem statement with HTML formatting (<p>, <strong>, <code>, etc.)",
+                          "inputFormat": "Precise input specification",
+                          "outputFormat": "Precise output specification",
+                          "constraints": [
+                            "1 ≤ n ≤ 100000",
+                            "Time complexity: O(log n) required",
+                            "..."
+                          ],
+                          "sampleTests": [
+                            {
+                              "input": "exact input",
+                              "output": "exact output",
+                              "explanation": "Step-by-step walkthrough of solution"
+                            }
+                          ],
+                          "hiddenTests": [
+                            {"input": "test input", "output": "correct output"}
+                          ],
+                          "difficulty": 1500,
+                          "tags": ["algorithm", "data-structure", "technique"]
+                        }
+                        """,
+                userDescription);
     }
 
     /**
-     * Call Gemini API with the prompt
+     * Call OpenAI API with the prompt
      */
-    private GeneratedProblemResponse callGeminiAPI(String prompt) {
+    private GeneratedProblemResponse callOpenAI(String prompt) {
         try {
-            // Build request body
+            // Build request payload for OpenAI Chat Completion
             Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put("model", model);
+            requestBody.put("temperature", temperature);
+            requestBody.put("max_tokens", maxTokens);
 
-            List<Map<String, Object>> contents = new ArrayList<>();
-            Map<String, Object> content = new HashMap<>();
+            // Messages array
+            Map<String, String> systemMessage = new HashMap<>();
+            systemMessage.put("role", "system");
+            systemMessage.put("content",
+                    "You are a competitive programming problem generator. Generate problems in valid JSON format without markdown code fences.");
 
-            List<Map<String, String>> parts = new ArrayList<>();
-            parts.add(Map.of("text", prompt));
+            Map<String, String> userMessage = new HashMap<>();
+            userMessage.put("role", "user");
+            userMessage.put("content", prompt);
 
-            content.put("parts", parts);
-            contents.add(content);
-
-            requestBody.put("contents", contents);
-
-            Map<String, Object> generationConfig = new HashMap<>();
-            generationConfig.put("temperature", temperature);
-            generationConfig.put("maxOutputTokens", 4000);
-            requestBody.put("generationConfig", generationConfig);
+            requestBody.put("messages", List.of(systemMessage, userMessage));
 
             // Set headers
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.setBearerAuth(apiKey);
 
-            HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
-
-            // Add API key to URL
-            String urlWithKey = apiUrl + "?key=" + apiKey;
-
-            // Call API
-            log.debug("Calling Gemini API...");
-            String response = restTemplate.postForObject(urlWithKey, request, String.class);
+            // Make request
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+            String response = restTemplate.postForObject(apiUrl, entity, String.class);
 
             // Parse response
             JsonNode root = objectMapper.readTree(response);
-            JsonNode candidatesNode = root.get("candidates");
+            log.info("OpenAI response received");
 
-            if (candidatesNode == null || candidatesNode.isEmpty()) {
-                throw new RuntimeException("No response from Gemini API");
+            JsonNode choicesNode = root.get("choices");
+            if (choicesNode == null || choicesNode.isEmpty()) {
+                throw new RuntimeException("No response from OpenAI API");
             }
 
-            String jsonContent = candidatesNode.get(0)
+            String jsonContent = choicesNode.get(0)
+                    .get("message")
                     .get("content")
-                    .get("parts")
-                    .get(0)
-                    .get("text")
                     .asText();
+
+            log.info("OpenAI content length: {}", jsonContent.length());
 
             // Extract JSON from markdown code blocks if present
             jsonContent = extractJsonFromMarkdown(jsonContent);
 
-            // Parse the generated problem
+            // Parse problem response
             GeneratedProblemResponse problemResponse = objectMapper.readValue(jsonContent,
                     GeneratedProblemResponse.class);
 
-            log.info("Successfully parsed Gemini response");
+            log.info("Successfully generated problem: {}", problemResponse.getTitle());
             return problemResponse;
 
         } catch (Exception e) {
-            log.error("Error calling Gemini API: {}", e.getMessage(), e);
-            throw new RuntimeException("Gemini API call failed", e);
+            log.error("Error calling OpenAI API: {}", e.getMessage());
+            throw new RuntimeException("OpenAI API call failed", e);
         }
     }
 
@@ -223,11 +267,20 @@ public class ProblemGenerationService {
      * Extract JSON from markdown code blocks
      */
     private String extractJsonFromMarkdown(String content) {
-        // Log original content for debugging
-        log.debug("Raw Gemini response (first 200 chars): {}", content.substring(0, Math.min(200, content.length())));
+        log.info("EXTRACTION DEBUG - Input length: {}, starts with: '{}'",
+                content.length(),
+                content.substring(0, Math.min(50, content.length())));
+
+        // Trim content first
+        content = content.trim();
+
+        log.info("EXTRACTION DEBUG - After trim, starts with: '{}'",
+                content.substring(0, Math.min(50, content.length())));
 
         // Remove markdown code blocks if present
-        if (content.trim().startsWith("```")) {
+        if (content.startsWith("```")) {
+            log.info("EXTRACTION DEBUG - Found markdown code fence, extracting JSON...");
+
             // Find the start of JSON (after ```json or just ```)
             int start = content.indexOf("```");
             start = content.indexOf("\n", start) + 1; // Move to next line after ```
@@ -237,13 +290,18 @@ public class ProblemGenerationService {
 
             if (end > start) {
                 String extracted = content.substring(start, end).trim();
-                log.debug("Extracted JSON from markdown (first 200 chars): {}",
-                        extracted.substring(0, Math.min(200, extracted.length())));
+                log.info("EXTRACTION DEBUG - Successfully extracted JSON, length: {}, starts with: '{}'",
+                        extracted.length(),
+                        extracted.substring(0, Math.min(50, extracted.length())));
                 return extracted;
+            } else {
+                log.warn("EXTRACTION DEBUG - Could not find ending code fence!");
             }
+        } else {
+            log.info("EXTRACTION DEBUG - No markdown code fence found, returning as-is");
         }
 
-        return content.trim();
+        return content;
     }
 
     /**
@@ -264,7 +322,7 @@ public class ProblemGenerationService {
 
         // LLM metadata
         problem.setSource("GENERATED");
-        problem.setLlmModel("gemini-pro");
+        problem.setLlmModel("gpt-4o-mini");
         problem.setGeneratedAt(LocalDateTime.now());
         problem.setIsVerified(false);
 

@@ -25,14 +25,14 @@ function GameRoom() {
   });
   const [selectedRating, setSelectedRating] = useState(1200);
   const [gameFilters, setGameFilters] = useState({
-    minDifficulty: 800,
-    maxDifficulty: 1500,
-    tags: []
+    description: ''
   });
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationStatus, setGenerationStatus] = useState('');
 
   // Derive isHost from gameState instead of separate state
   const isHost = useMemo(() => {
-    const currentUser = gameState.users.find(u => u.codeforcesHandle === codeforcesHandle);
+    const currentUser = gameState.users?.find(u => u.codeforcesHandle === codeforcesHandle);
     return currentUser?.host || false;
   }, [gameState.users, codeforcesHandle]);
 
@@ -56,8 +56,19 @@ function GameRoom() {
 
       // Subscribe to room updates
       webSocketService.subscribe(`/topic/room/${roomId}`, (update) => {
-        // Update game state - isHost will be automatically derived via useMemo
-        setGameState(update);
+        // Check if this is a generation status message
+        if (update.type === 'GENERATION_STATUS') {
+          setGenerationStatus(update.status);
+          setIsGenerating(true);
+        } else {
+          // Normal game state update
+          setGameState(update);
+          // If problem is now loaded, stop generating
+          if (update.problem) {
+            setIsGenerating(false);
+            setGenerationStatus('');
+          }
+        }
       });
 
       // Join the room
@@ -83,10 +94,11 @@ function GameRoom() {
   const handleStartGame = () => {
     if (!isHost) return;
 
+    setIsGenerating(true);
+    setGenerationStatus('Preparing to generate problem...');
+
     webSocketService.send(`/app/game/${roomId}/start`, {
-      minDifficulty: gameFilters.minDifficulty,
-      maxDifficulty: gameFilters.maxDifficulty,
-      tags: gameFilters.tags
+      description: gameFilters.description
     });
   };
 
@@ -122,6 +134,42 @@ function GameRoom() {
   };
 
   /**
+   * Renders the loading screen while AI generates problem
+   */
+  const renderLoadingScreen = () => (
+    <div className="min-h-screen bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 p-8 flex items-center justify-center">
+      <div className="max-w-md w-full bg-white rounded-2xl shadow-2xl p-8 text-center">
+        {/* Animated Spinner */}
+        <div className="mb-6 flex justify-center">
+          <div className="w-20 h-20 border-8 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+        </div>
+
+        {/* Title */}
+        <h2 className="text-3xl font-bold text-gray-800 mb-4">
+          🤖 AI is Crafting Your Problem
+        </h2>
+
+        {/* Status Message */}
+        <p className="text-lg text-gray-600 mb-6">
+          {generationStatus || 'Preparing to generate...'}
+        </p>
+
+        {/* Progress Dots */}
+        <div className="flex justify-center gap-2 mb-6">
+          <div className="w-3 h-3 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
+          <div className="w-3 h-3 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+          <div className="w-3 h-3 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+        </div>
+
+        {/* Info Text */}
+        <p className="text-sm text-gray-500">
+          This typically takes 5-15 seconds
+        </p>
+      </div>
+    </div>
+  );
+
+  /**
    * Renders the waiting lobby
    */
   const renderWaitingLobby = () => (
@@ -144,9 +192,9 @@ function GameRoom() {
 
       {/* Users List */}
       <div className="card">
-        <h3 className="font-semibold mb-3">Players ({gameState.users.length})</h3>
+        <h3 className="font-semibold mb-3">Players ({gameState.users?.length || 0})</h3>
         <div className="space-y-2">
-          {gameState.users.map((user, index) => (
+          {gameState.users?.map((user, index) => (
             <div
               key={index}
               className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
@@ -184,9 +232,9 @@ function GameRoom() {
           <button
             className="btn-primary w-full"
             onClick={handleStartGame}
-            disabled={gameState.users.length < 2}
+            disabled={(gameState.users?.length || 0) < 2}
           >
-            {gameState.users.length < 2 ? 'Waiting for more players...' : 'Start Race!'}
+            {(gameState.users?.length || 0) < 2 ? 'Waiting for more players...' : 'Start Race!'}
           </button>
         </div>
       )}
@@ -251,14 +299,7 @@ function GameRoom() {
         )}
 
         {/* Problem Link */}
-        <a
-          href={gameState.problem?.problemUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-block bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-blue-50 transition-colors mb-6"
-        >
-          Solve on Codeforces →
-        </a>
+
 
         {/* Code Editor - Only show when game is in progress */}
         {gameState.state === 'STARTED' && (
@@ -277,7 +318,7 @@ function GameRoom() {
       <div className="card">
         <h3 className="font-semibold mb-3">🏁 Race Status</h3>
         <div className="space-y-2">
-          {gameState.users.map((user, index) => (
+          {gameState.users?.map((user, index) => (
             <div
               key={index}
               className={`flex items-center justify-between p-3 rounded-lg ${user.status === 'WON' ? 'bg-green-100' : 'bg-gray-50'
@@ -313,7 +354,7 @@ function GameRoom() {
    * Renders the finished game
    */
   const renderFinishedGame = () => {
-    const winner = gameState.users.find(u => u.sessionId === gameState.winnerId);
+    const winner = gameState.users?.find(u => u.sessionId === gameState.winnerId);
 
     return (
       <div className="space-y-6">
@@ -342,7 +383,7 @@ function GameRoom() {
         <div className="card">
           <h3 className="font-semibold mb-3">Final Standings</h3>
           <div className="space-y-2">
-            {gameState.users.map((user, index) => (
+            {gameState.users?.map((user, index) => (
               <div
                 key={index}
                 className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
@@ -394,9 +435,10 @@ function GameRoom() {
         {/* Render based on game state */}
         {connected && (
           <>
-            {gameState.state === 'WAITING' && renderWaitingLobby()}
-            {gameState.state === 'STARTED' && renderActiveGame()}
-            {gameState.state === 'FINISHED' && renderFinishedGame()}
+            {isGenerating && renderLoadingScreen()}
+            {!isGenerating && gameState.state === 'WAITING' && renderWaitingLobby()}
+            {!isGenerating && gameState.state === 'STARTED' && renderActiveGame()}
+            {!isGenerating && gameState.state === 'FINISHED' && renderFinishedGame()}
           </>
         )}
       </div>

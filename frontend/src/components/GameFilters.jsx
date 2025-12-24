@@ -1,135 +1,138 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import './GameFilters.css';
 
 /**
- * Component for selecting game filters (difficulty and algorithm tags)
+ * Component for entering problem description with autocomplete suggestions
  * Only editable by the room host
  */
 function GameFilters({ onFiltersChange, isHost, initialFilters }) {
-    const [minDifficulty, setMinDifficulty] = useState(initialFilters?.minDifficulty || 800);
-    const [maxDifficulty, setMaxDifficulty] = useState(initialFilters?.maxDifficulty || 1500);
-    const [selectedTags, setSelectedTags] = useState(initialFilters?.tags || []);
+    const [description, setDescription] = useState(initialFilters?.description || '');
+    const [showSuggestions, setShowSuggestions] = useState(false);
+    const textareaRef = useRef(null);
 
     // Sync state when initialFilters change (from WebSocket)
     useEffect(() => {
         if (initialFilters) {
-            setMinDifficulty(initialFilters.minDifficulty || 800);
-            setMaxDifficulty(initialFilters.maxDifficulty || 1500);
-            setSelectedTags(initialFilters.tags || []);
+            setDescription(initialFilters.description || '');
         }
     }, [initialFilters]);
 
-    // Common algorithm tags from backend
-    const availableTags = [
-        'dp', 'greedy', 'math', 'implementation', 'constructive algorithms',
-        'data structures', 'brute force', 'binary search', 'dfs and similar',
-        'graphs', 'trees', 'sortings', 'number theory', 'combinatorics',
-        'two pointers', 'strings', 'geometry', 'bitmasks', 'dsu'
+    // Common algorithm patterns and topics for suggestions
+    const suggestions = [
+        'dynamic programming',
+        'two pointers',
+        'sliding window',
+        'geometry',
+        'trees',
+        'graphs',
+        'binary search',
+        'greedy',
+        'hash tables',
+        'stacks',
+        'queues',
+        'heaps',
+        'backtracking',
+        'divide and conquer',
+        'depth first search',
+        'breadth first search',
+        'sorting',
+        'bit manipulation',
+        'string matching',
+        'dijkstra',
+        'floyd-warshall',
+        'union find',
+        'segment trees',
+        'fenwick tree'
     ];
 
-    const difficultyLevels = [
-        { label: 'Beginner', min: 800, max: 1200 },
-        { label: 'Easy', min: 1200, max: 1500 },
-        { label: 'Medium', min: 1500, max: 1900 },
-        { label: 'Hard', min: 1900, max: 2400 },
-        { label: 'Expert', min: 2400, max: 3500 }
-    ];
-
-    const toggleTag = (tag) => {
+    const handleDescriptionChange = (e) => {
         if (!isHost) return;
+        const newDescription = e.target.value;
+        setDescription(newDescription);
 
-        const newTags = selectedTags.includes(tag)
-            ? selectedTags.filter(t => t !== tag)
-            : [...selectedTags, tag];
-
-        setSelectedTags(newTags);
-        notifyFiltersChange(minDifficulty, maxDifficulty, newTags);
-    };
-
-    const setDifficultyRange = (preset) => {
-        if (!isHost) return;
-
-        setMinDifficulty(preset.min);
-        setMaxDifficulty(preset.max);
-        notifyFiltersChange(preset.min, preset.max, selectedTags);
-    };
-
-    const notifyFiltersChange = (min, max, tags) => {
+        // Notify parent component
         if (onFiltersChange) {
-            onFiltersChange({
-                minDifficulty: min,
-                maxDifficulty: max,
-                tags: tags
-            });
+            onFiltersChange({ description: newDescription });
         }
+    };
+
+    const insertSuggestion = (suggestion) => {
+        if (!isHost) return;
+
+        const textarea = textareaRef.current;
+        const cursorPos = textarea.selectionStart;
+        const textBefore = description.substring(0, cursorPos);
+        const textAfter = description.substring(cursorPos);
+
+        // Add space if needed
+        const needsSpace = textBefore.length > 0 && !textBefore.endsWith(' ');
+        const newDescription = textBefore + (needsSpace ? ' ' : '') + suggestion + textAfter;
+
+        setDescription(newDescription);
+        setShowSuggestions(false);
+
+        // Notify parent component
+        if (onFiltersChange) {
+            onFiltersChange({ description: newDescription });
+        }
+
+        // Focus back on textarea
+        setTimeout(() => textarea.focus(), 0);
     };
 
     return (
         <div className="game-filters">
             <h3 className="filters-title">
-                🎯 Game Settings {!isHost && <span className="read-only">(Read-Only)</span>}
+                🎯 Problem Description {!isHost && <span className="read-only">(Read-Only)</span>}
             </h3>
 
-            {/* Difficulty Selection */}
-            <div className="filter-section">
-                <label className="filter-label">Difficulty Range:</label>
-                <div className="difficulty-presets">
-                    {difficultyLevels.map((level) => (
-                        <button
-                            key={level.label}
-                            className={`difficulty-btn ${minDifficulty === level.min && maxDifficulty === level.max
-                                ? 'active'
-                                : ''
-                                } ${!isHost ? 'disabled' : ''}`}
-                            onClick={() => setDifficultyRange(level)}
-                            disabled={!isHost}
-                        >
-                            {level.label}
-                            <span className="difficulty-range">
-                                ({level.min}-{level.max})
-                            </span>
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            {/* Algorithm Tags Selection */}
+            {/* Description Input */}
             <div className="filter-section">
                 <label className="filter-label">
-                    Algorithm Tags:
-                    <span className="selected-count">
-                        {selectedTags.length > 0 ? ` ${selectedTags.length} selected` : ' None selected'}
-                    </span>
+                    Describe the problem you want:
                 </label>
-                <div className="tags-grid">
-                    {availableTags.map((tag) => (
-                        <button
-                            key={tag}
-                            className={`tag-btn ${selectedTags.includes(tag) ? 'selected' : ''
-                                } ${!isHost ? 'disabled' : ''}`}
-                            onClick={() => toggleTag(tag)}
-                            disabled={!isHost}
-                        >
-                            {selectedTags.includes(tag) && '✓ '}
-                            {tag}
-                        </button>
-                    ))}
-                </div>
+                <textarea
+                    ref={textareaRef}
+                    className={`description-input ${!isHost ? 'disabled' : ''}`}
+                    placeholder="Example: a tree problem with dynamic programming, or a graph traversal using BFS..."
+                    value={description}
+                    onChange={handleDescriptionChange}
+                    onFocus={() => isHost && setShowSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                    disabled={!isHost}
+                    rows={3}
+                />
             </div>
 
+            {/* Autocomplete Suggestions */}
+            {isHost && showSuggestions && (
+                <div className="filter-section">
+                    <label className="filter-label">Quick Suggestions:</label>
+                    <div className="tags-grid">
+                        {suggestions.map((suggestion) => (
+                            <button
+                                key={suggestion}
+                                className="tag-btn suggestion-chip"
+                                onMouseDown={(e) => {
+                                    e.preventDefault(); // Prevent textarea blur
+                                    insertSuggestion(suggestion);
+                                }}
+                            >
+                                + {suggestion}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {/* Summary */}
-            {(selectedTags.length > 0 || minDifficulty !== 800 || maxDifficulty !== 1500) && (
+            {description && description.trim() && (
                 <div className="filter-summary">
-                    <strong>Active Filters:</strong>
+                    <strong>Your Request:</strong>
                     <div className="summary-content">
                         <span className="summary-item">
-                            📊 Rating: {minDifficulty}-{maxDifficulty}
+                            📝 {description}
                         </span>
-                        {selectedTags.length > 0 && (
-                            <span className="summary-item">
-                                🏷️ Tags: {selectedTags.join(', ')}
-                            </span>
-                        )}
                     </div>
                 </div>
             )}

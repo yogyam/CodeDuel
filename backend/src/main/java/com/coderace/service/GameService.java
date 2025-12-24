@@ -130,7 +130,6 @@ public class GameService {
 
         // Update room state
         room.setCurrentProblem(problem);
-        room.setSelectedRating(filter.minDifficulty()); // Store min difficulty for reference
         room.setState(GameRoom.GameState.STARTED);
         room.setGameStartTime(Instant.now());
 
