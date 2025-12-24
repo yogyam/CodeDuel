@@ -67,7 +67,7 @@ function SignupPage() {
         <div className="login-container">
             <div className="login-card">
                 <div className="logo-section">
-                    <h1>⚡ CodeDuel</h1>
+                    <h1>CodeDuel</h1>
                     <p className="tagline">Create your account</p>
                 </div>
 

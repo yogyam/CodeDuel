@@ -53,12 +53,12 @@ function PublicLanding() {
                         <p>Start a coding challenge and invite your friends</p>
                     </div>
                     <div className="step">
-                        <div className="step-icon">⚡</div>
+                        <div className="step-icon">1</div>
                         <h3>Select Problem</h3>
                         <p>Choose difficulty and get a random Codeforces problem</p>
                     </div>
                     <div className="step">
-                        <div className="step-icon">🏆</div>
+                        <div className="step-icon">2</div>
                         <h3>Race to Solve</h3>
                         <p>First to solve wins! Track progress in real-time</p>
                     </div>

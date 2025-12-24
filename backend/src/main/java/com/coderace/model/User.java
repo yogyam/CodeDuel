@@ -14,15 +14,17 @@ public class User {
     private String codeforcesHandle;
     private String sessionId;
     private boolean isHost;
+    private String username; // Authenticated username from JWT
     private UserStatus status;
-    
-    public User(String codeforcesHandle, String sessionId, boolean isHost) {
+
+    public User(String codeforcesHandle, String sessionId, boolean isHost, String username) {
         this.codeforcesHandle = codeforcesHandle;
         this.sessionId = sessionId;
         this.isHost = isHost;
+        this.username = username;
         this.status = UserStatus.WAITING;
     }
-    
+
     public enum UserStatus {
         WAITING,
         SOLVING,

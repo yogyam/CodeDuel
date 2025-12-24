@@ -57,7 +57,7 @@ function LoginPage() {
         <div className="login-container">
             <div className="login-card">
                 <div className="logo-section">
-                    <h1>⚡ CodeDuel</h1>
+                    <h1>CodeDuel</h1>
                     <p className="tagline">Welcome back!</p>
                 </div>
 
@@ -129,15 +129,15 @@ function LoginPage() {
 
                     <div className="features">
                         <div className="feature-item">
-                            <span className="feature-icon">🎯</span>
+                            <span className="feature-icon">●</span>
                             <span>Compete in real-time</span>
                         </div>
                         <div className="feature-item">
-                            <span className="feature-icon">🏆</span>
+                            <span className="feature-icon">★</span>
                             <span>Solve Codeforces problems</span>
                         </div>
                         <div className="feature-item">
-                            <span className="feature-icon">⚡</span>
+                            <span className="feature-icon">⚬</span>
                             <span>Race against friends</span>
                         </div>
                     </div>

@@ -26,6 +26,9 @@ public class GameService {
     // In-memory storage for active game rooms
     private final ConcurrentHashMap<String, GameRoom> activeRooms = new ConcurrentHashMap<>();
 
+    // In-memory cache for generated problems (used in two-step generation)
+    private final ConcurrentHashMap<String, Problem> generatedProblems = new ConcurrentHashMap<>();
+
     private final SimpMessagingTemplate messagingTemplate;
     private final CodeExecutionService codeExecutionService;
     private final SubmissionService submissionService;
@@ -48,17 +51,53 @@ public class GameService {
     }
 
     /**
+     * Cache a generated problem for later retrieval
+     * Used in two-step generation flow
+     * 
+     * @param problem Problem to cache
+     */
+    public void cacheGeneratedProblem(Problem problem) {
+        generatedProblems.put(problem.getProblemId(), problem);
+        log.info("Cached generated problem {}", problem.getProblemId());
+    }
+
+    /**
+     * Retrieve a cached generated problem
+     * 
+     * @param problemId Problem ID
+     * @return Problem or null if not found
+     */
+    public Problem getCachedProblem(String problemId) {
+        return generatedProblems.get(problemId);
+    }
+
+    /**
+     * Remove a cached problem (cleanup after use)
+     * Prevents memory leak by clearing problems that have been used
+     * 
+     * @param problemId Problem ID to remove
+     */
+    public void removeCachedProblem(String problemId) {
+        Problem removed = generatedProblems.remove(problemId);
+        if (removed != null) {
+            log.info("Removed cached problem {} from cache", problemId);
+        }
+    }
+
+    /**
      * Creates a new game room with a unique ID
      * 
-     * @param hostHandle Codeforces handle of the host
+     * @param hostHandle   Codeforces handle of the host
+     * @param hostUsername Authenticated username of the host
      * @return The unique room ID
      */
-    public String createRoom(String hostHandle) {
+    public String createRoom(String hostHandle, String hostUsername) {
         String roomId = generateRoomId();
         GameRoom room = new GameRoom(roomId);
+        room.setHostUsername(hostUsername);
 
         activeRooms.put(roomId, room);
-        log.info("Created room {} for host {}", roomId, hostHandle);
+        log.info("Created room {} for host {} (username: {})", roomId, hostHandle, hostUsername);
 
         return roomId;
     }
@@ -69,9 +108,10 @@ public class GameService {
      * @param roomId    The room to join
      * @param handle    Codeforces handle
      * @param sessionId WebSocket session ID
+     * @param username  Authenticated username from JWT
      * @return The created User object, or null if room doesn't exist
      */
-    public User addUserToRoom(String roomId, String handle, String sessionId) {
+    public User addUserToRoom(String roomId, String handle, String sessionId, String username) {
         GameRoom room = activeRooms.get(roomId);
 
         if (room == null) {
@@ -79,12 +119,15 @@ public class GameService {
             return null;
         }
 
-        // First user to join becomes the host
-        boolean isHost = room.getUserList().isEmpty();
-        User user = new User(handle, sessionId, isHost);
+        // If username is null, use codeforcesHandle as fallback identifier
+        String userIdentifier = (username != null) ? username : handle;
+
+        // Check if this username matches the original host
+        boolean isHost = userIdentifier.equals(room.getHostUsername());
+        User user = new User(handle, sessionId, isHost, userIdentifier);
 
         room.addUser(user);
-        log.info("Added user {} to room {} (host: {})", handle, roomId, isHost);
+        log.info("Added user {} to room {} (host: {}, username: {})", handle, roomId, isHost, userIdentifier);
 
         return user;
     }
@@ -106,9 +149,9 @@ public class GameService {
             return false;
         }
 
-        // Verify the user is the host
+        // Verify the user is the host by username
         User user = room.getUsers().get(sessionId);
-        if (user == null || !user.isHost()) {
+        if (user == null || !user.getUsername().equals(room.getHostUsername())) {
             log.error("User {} is not the host of room {}", sessionId, roomId);
             return false;
         }
@@ -138,6 +181,50 @@ public class GameService {
 
         log.info("Game started in room {} with generated problem {} (filters: {})",
                 roomId, problem.getProblemId(), filter);
+        return true;
+    }
+
+    /**
+     * Starts the game using a pre-generated problem
+     * Only the host can start the game
+     * Part of two-step generation flow
+     * 
+     * @param roomId    The room ID
+     * @param sessionId Session ID of the user requesting to start
+     * @param problem   Pre-generated problem to use
+     * @return true if game started successfully
+     */
+    public boolean startGame(String roomId, String sessionId, Problem problem) {
+        GameRoom room = activeRooms.get(roomId);
+
+        if (room == null) {
+            log.error("Room {} not found", roomId);
+            return false;
+        }
+
+        // Verify the user is the host by username
+        User user = room.getUsers().get(sessionId);
+        if (user == null || !user.getUsername().equals(room.getHostUsername())) {
+            log.error("User {} is not the host of room {}", sessionId, roomId);
+            return false;
+        }
+
+        // Verify room is in WAITING state
+        if (room.getState() != GameRoom.GameState.WAITING) {
+            log.error("Room {} is not in WAITING state", roomId);
+            return false;
+        }
+
+        // Use the provided problem
+        room.setCurrentProblem(problem);
+        room.setState(GameRoom.GameState.STARTED);
+        room.setGameStartTime(Instant.now());
+
+        // Update all users' status to SOLVING
+        room.getUserList().forEach(u -> u.setStatus(User.UserStatus.SOLVING));
+
+        log.info("Game started in room {} with pre-generated problem {}",
+                roomId, problem.getProblemId());
         return true;
     }
 

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import webSocketService from '../services/WebSocketService';
 import GameFilters from './GameFilters';
+import ProblemTitleSelector from './ProblemTitleSelector';
 import CodeEditor from './CodeEditor';
 import DOMPurify from 'dompurify';
 import './GameRoom.css';
@@ -25,16 +26,23 @@ function GameRoom() {
   });
   const [selectedRating, setSelectedRating] = useState(1200);
   const [gameFilters, setGameFilters] = useState({
-    description: ''
+    category: 'DYNAMIC_PROGRAMMING',
+    difficulty: 'MEDIUM',
+    subtype: ''
   });
+
+  // Two-step generation states
+  const [generationStep, setGenerationStep] = useState('WAITING'); // WAITING | GENERATING_TITLES | SELECTING_TITLE | GENERATING_PROBLEM
+  const [titleOptions, setTitleOptions] = useState([]);
+  const [selectedTitle, setSelectedTitle] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationStatus, setGenerationStatus] = useState('');
 
   // Derive isHost from gameState instead of separate state
   const isHost = useMemo(() => {
-    const currentUser = gameState.users?.find(u => u.codeforcesHandle === codeforcesHandle);
+    const currentUser = gameState.users?.find(u => u.username === user?.username);
     return currentUser?.host || false;
-  }, [gameState.users, codeforcesHandle]);
+  }, [gameState.users, user?.username]);
 
   const [connected, setConnected] = useState(false);
   const [room, setRoom] = useState(null);
@@ -67,6 +75,7 @@ function GameRoom() {
           if (update.problem) {
             setIsGenerating(false);
             setGenerationStatus('');
+            setGenerationStep('WAITING'); // Reset for next game
           }
         }
       });
@@ -76,7 +85,7 @@ function GameRoom() {
         roomId: roomId,
         codeforcesHandle: codeforcesHandle
       });
-    });
+    }, token); // Pass token for WebSocket authentication
 
     // Cleanup on unmount
     return () => {
@@ -86,10 +95,141 @@ function GameRoom() {
       }
       webSocketService.disconnect();
     };
-  }, [roomId, codeforcesHandle]);
+  }, [roomId, codeforcesHandle, token]);
 
   /**
-   * Starts the game (host only)
+   * Step 1: Generate title options (host only)
+   */
+  const handleGenerateTitles = async () => {
+    if (!isHost) return;
+
+    // Idempotency check - prevent double-clicking
+    if (isGenerating || generationStep !== 'WAITING') {
+      console.log('Generation already in progress, ignoring duplicate request');
+      return;
+    }
+
+    setGenerationStep('GENERATING_TITLES');
+    setIsGenerating(true);
+    setGenerationStatus('Generating problem options...');
+
+    try {
+      // Create AbortController for timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+      const response = await fetch('/api/game/generate-titles', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(gameFilters),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error('Failed to generate titles');
+      }
+
+      const data = await response.json();
+      setTitleOptions(data.options);
+      setGenerationStep('SELECTING_TITLE');
+      setIsGenerating(false);
+      setGenerationStatus('');
+    } catch (error) {
+      console.error('Error generating titles:', error);
+
+      let errorMessage = 'Failed to generate titles';
+      if (error.name === 'AbortError') {
+        errorMessage = 'Request timed out. Please try again.';
+      }
+
+      setGenerationStatus(errorMessage);
+      setIsGenerating(false);
+      setGenerationStep('WAITING');
+    }
+  };
+
+  /**
+   * Step 2: User selects a title and generates full problem
+   */
+  const handleTitleSelect = async (title) => {
+    if (!isHost) return;
+
+    // Idempotency check - prevent double-clicking
+    if (isGenerating || generationStep !== 'SELECTING_TITLE') {
+      console.log('Generation already in progress, ignoring duplicate request');
+      return;
+    }
+
+    setSelectedTitle(title);
+    setGenerationStep('GENERATING_PROBLEM');
+    setIsGenerating(true);
+    setGenerationStatus('Generating full problem...');
+
+    try {
+      // Create AbortController for timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+      const response = await fetch('/api/game/generate-problem-from-title', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          filter: gameFilters,
+          selectedTitle: title
+        }),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error('Failed to generate problem');
+      }
+
+      const problem = await response.json();
+
+      // Validate problem was returned
+      if (!problem || !problem.problemId) {
+        throw new Error('Invalid problem response');
+      }
+
+      // Now start the game with the generated problem via WebSocket
+      try {
+        webSocketService.send(`/app/game/${roomId}/start`, {
+          problemId: problem.problemId
+        });
+      } catch (wsError) {
+        console.error('WebSocket send error:', wsError);
+        throw new Error('Failed to start game via WebSocket');
+      }
+
+    } catch (error) {
+      console.error('Error generating problem:', error);
+
+      // Provide user-friendly error message
+      let errorMessage = 'Failed to generate problem';
+      if (error.name === 'AbortError') {
+        errorMessage = 'Request timed out. Please try again.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      setGenerationStatus(errorMessage);
+      setIsGenerating(false);
+      setGenerationStep('SELECTING_TITLE'); // Allow retry
+    }
+  };
+
+  /**
+   * Legacy: Starts the game directly (for backward compatibility)
    */
   const handleStartGame = () => {
     if (!isHost) return;
@@ -137,33 +277,16 @@ function GameRoom() {
    * Renders the loading screen while AI generates problem
    */
   const renderLoadingScreen = () => (
-    <div className="min-h-screen bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 p-8 flex items-center justify-center">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-2xl p-8 text-center">
+    <div className="min-h-screen flex items-center justify-center bg-white">
+      <div className="text-center">
         {/* Animated Spinner */}
-        <div className="mb-6 flex justify-center">
-          <div className="w-20 h-20 border-8 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+        <div className="mb-4 flex justify-center">
+          <div className="w-16 h-16 border-4 border-gray-200 border-t-blue-600 rounded-full animate-spin"></div>
         </div>
 
-        {/* Title */}
-        <h2 className="text-3xl font-bold text-gray-800 mb-4">
-          🤖 AI is Crafting Your Problem
-        </h2>
-
-        {/* Status Message */}
-        <p className="text-lg text-gray-600 mb-6">
-          {generationStatus || 'Preparing to generate...'}
-        </p>
-
-        {/* Progress Dots */}
-        <div className="flex justify-center gap-2 mb-6">
-          <div className="w-3 h-3 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
-          <div className="w-3 h-3 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-          <div className="w-3 h-3 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-        </div>
-
-        {/* Info Text */}
-        <p className="text-sm text-gray-500">
-          This typically takes 5-15 seconds
+        {/* Simple Text */}
+        <p className="text-xl text-gray-700">
+          Loading Question Generation...
         </p>
       </div>
     </div>
@@ -206,7 +329,7 @@ function GameRoom() {
                 <div>
                   <div className="font-semibold">{user.codeforcesHandle}</div>
                   {user.host && (
-                    <span className="text-xs text-coderace-blue">👑 Host</span>
+                    <span className="text-xs text-coderace-blue">Host</span>
                   )}
                 </div>
               </div>
@@ -220,21 +343,32 @@ function GameRoom() {
 
 
       {/* Game Filters (Host can edit, others view only) */}
-      <GameFilters
-        onFiltersChange={setGameFilters}
-        isHost={isHost}
-        initialFilters={gameFilters}
-      />
+      {generationStep === 'WAITING' && (
+        <GameFilters
+          onFiltersChange={setGameFilters}
+          isHost={isHost}
+          initialFilters={gameFilters}
+        />
+      )}
 
-      {/* Start Game Button (Host Only) */}
-      {isHost && (
+      {/* Title Selector (shown after titles are generated) */}
+      {generationStep === 'SELECTING_TITLE' && (
+        <ProblemTitleSelector
+          titleOptions={titleOptions}
+          onSelect={handleTitleSelect}
+          isLoading={false}
+        />
+      )}
+
+      {/* Generate Titles / Start Game Button (Host Only) */}
+      {isHost && generationStep === 'WAITING' && (
         <div className="card">
           <button
             className="btn-primary w-full"
-            onClick={handleStartGame}
+            onClick={handleGenerateTitles}
             disabled={(gameState.users?.length || 0) < 2}
           >
-            {(gameState.users?.length || 0) < 2 ? 'Waiting for more players...' : 'Start Race!'}
+            {(gameState.users?.length || 0) < 2 ? 'Waiting for more players...' : 'Generate Problem Options'}
           </button>
         </div>
       )}
@@ -316,7 +450,7 @@ function GameRoom() {
 
       {/* Status Board */}
       <div className="card">
-        <h3 className="font-semibold mb-3">🏁 Race Status</h3>
+        <h3 className="font-semibold mb-3">Race Status</h3>
         <div className="space-y-2">
           {gameState.users?.map((user, index) => (
             <div
@@ -327,7 +461,7 @@ function GameRoom() {
               <div className="flex items-center gap-3">
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${user.status === 'WON' ? 'bg-green-500' : 'bg-coderace-blue'
                   }`}>
-                  {user.status === 'WON' ? '🏆' : user.codeforcesHandle[0].toUpperCase()}
+                  {user.status === 'WON' ? '★' : user.codeforcesHandle[0].toUpperCase()}
                 </div>
                 <div className="font-semibold">{user.codeforcesHandle}</div>
               </div>
@@ -360,7 +494,7 @@ function GameRoom() {
       <div className="space-y-6">
         {/* Winner Announcement */}
         <div className="card bg-gradient-to-r from-green-500 to-green-600 text-white text-center py-12">
-          <div className="text-6xl mb-4">🏆</div>
+          <div className="text-6xl mb-4">★</div>
           <h2 className="text-3xl font-bold mb-2">Winner!</h2>
           <p className="text-2xl font-semibold">{winner?.codeforcesHandle}</p>
         </div>
@@ -389,7 +523,7 @@ function GameRoom() {
                 className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-xl">{user.status === 'WON' ? '🥇' : '—'}</span>
+                  <span className="text-xl">{user.status === 'WON' ? '★' : '—'}</span>
                   <div className="font-semibold">{user.codeforcesHandle}</div>
                 </div>
                 <span className={getUserStatusBadge(user.status)}>
@@ -413,7 +547,7 @@ function GameRoom() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-3xl font-bold text-coderace-blue">
-            🏁 CodeRace
+            CodeRace
           </h1>
           <button
             className="text-gray-600 hover:text-gray-900"

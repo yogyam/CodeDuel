@@ -21,41 +21,42 @@ public class GameRoom {
     private Integer selectedRating;
     private Instant gameStartTime;
     private String winnerId; // sessionId of the winner
-    
+    private String hostUsername; // Username of the host (persists across sessions)
+
     public GameRoom(String roomId) {
         this.roomId = roomId;
         this.users = new ConcurrentHashMap<>();
         this.state = GameState.WAITING;
     }
-    
+
     /**
      * Adds a user to the room
      */
     public void addUser(User user) {
         users.put(user.getSessionId(), user);
     }
-    
+
     /**
      * Removes a user from the room
      */
     public void removeUser(String sessionId) {
         users.remove(sessionId);
     }
-    
+
     /**
      * Gets all users as a list
      */
     public List<User> getUserList() {
         return new ArrayList<>(users.values());
     }
-    
+
     /**
      * Checks if the room is empty
      */
     public boolean isEmpty() {
         return users.isEmpty();
     }
-    
+
     /**
      * Gets the host user
      */
@@ -65,10 +66,10 @@ public class GameRoom {
                 .findFirst()
                 .orElse(null);
     }
-    
+
     public enum GameState {
-        WAITING,    // Waiting for players to join
-        STARTED,    // Game has started, users are solving
-        FINISHED    // Game finished, winner declared
+        WAITING, // Waiting for players to join
+        STARTED, // Game has started, users are solving
+        FINISHED // Game finished, winner declared
     }
 }

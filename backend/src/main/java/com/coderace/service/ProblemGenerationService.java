@@ -1,7 +1,10 @@
 package com.coderace.service;
 
 import com.coderace.dto.GeneratedProblemResponse;
+import com.coderace.dto.GenerateTitlesResponse;
 import com.coderace.dto.ProblemFilter;
+import com.coderace.dto.ProblemTitleOption;
+import com.coderace.dto.TitleGenerationResponse;
 import com.coderace.model.Problem;
 import com.coderace.model.TestCase;
 import com.coderace.repository.TestCaseRepository;
@@ -20,6 +23,7 @@ import org.springframework.web.client.RestTemplate;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
+import com.coderace.constants.GameConstants;
 
 /**
  * Service for generating coding problems using Google Gemini API
@@ -57,38 +61,111 @@ public class ProblemGenerationService {
     }
 
     /**
-     * Generate a new problem using Gemini API
+     * Step 1: Generate 3 problem title options for user to choose from
+     * Part of two-step generation flow
+     *
+     * @param filter Problem category, difficulty, and optional subtype
+     * @param roomId Room ID for status broadcasting
+     * @return 3 problem title options
+     */
+    @Transactional
+    public GenerateTitlesResponse generateProblemTitles(ProblemFilter filter, String roomId) {
+        log.info("Generating title options - Category: {}, Difficulty: {}, Subtype: {}",
+                filter.category().getDisplayName(),
+                filter.difficulty().getDisplayName(),
+                filter.hasSubtype() ? filter.subtype() : "None");
+
+        try {
+            broadcastStatus(roomId, GameConstants.STATUS_GENERATING_OPTIONS);
+
+            String prompt = buildTitleGenerationPrompt(filter);
+            TitleGenerationResponse response = callOpenAIForTitles(prompt);
+
+            broadcastStatus(roomId, GameConstants.STATUS_OPTIONS_READY);
+
+            GenerateTitlesResponse result = new GenerateTitlesResponse(response.getOptions());
+            log.info("Successfully generated {} title options", result.getOptions().size());
+            return result;
+
+        } catch (Exception e) {
+            broadcastStatus(roomId, GameConstants.STATUS_FAILED_TITLES);
+            log.error("Failed to generate title options: {}", e.getMessage(), e);
+            throw new RuntimeException("Title generation failed: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Step 2: Generate full problem from selected title
+     * 
+     * @param filter        Problem filter with category/difficulty
+     * @param selectedTitle The title option user selected
+     * @param roomId        Room ID for status broadcasting
+     * @return Complete problem with test cases
+     */
+    @Transactional
+    public Problem generateProblemFromTitle(ProblemFilter filter, ProblemTitleOption selectedTitle, String roomId) {
+        log.info("Generating full problem from title: {}", selectedTitle.getTitle());
+
+        try {
+            broadcastStatus(roomId, GameConstants.STATUS_GENERATING_PROBLEM);
+
+            String prompt = buildFullProblemPrompt(filter, selectedTitle);
+            GeneratedProblemResponse response = callOpenAI(prompt);
+
+            broadcastStatus(roomId, GameConstants.STATUS_PROCESSING_DETAILS);
+            Problem problem = convertToProblem(response, filter);
+
+            broadcastStatus(roomId, GameConstants.STATUS_CREATING_TESTS);
+            saveTestCases(problem, response);
+
+            broadcastStatus(roomId, GameConstants.STATUS_PROBLEM_READY);
+            log.info("Successfully generated full problem: {}", problem.getName());
+            return problem;
+
+        } catch (Exception e) {
+            broadcastStatus(roomId, GameConstants.STATUS_FAILED_GENERATION);
+            log.error("Failed to generate full problem: {}", e.getMessage(), e);
+            throw new RuntimeException("Problem generation failed: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Original method - generates problem in one step
+     * Now uses defaultFilter temporarily until frontend is updated
      *
      * @param filter Problem difficulty and tags
      * @return Generated problem with test cases
      */
     @Transactional
     public Problem generateProblem(ProblemFilter filter, String roomId) {
-        log.info("Generating problem with description: {}", filter.description());
+        log.info("Generating problem - Category: {}, Difficulty: {}, Subtype: {}",
+                filter.category().getDisplayName(),
+                filter.difficulty().getDisplayName(),
+                filter.hasSubtype() ? filter.subtype() : "None");
 
         try {
             // Step 1: Building prompt
-            broadcastStatus(roomId, "Building problem prompt...");
+            broadcastStatus(roomId, GameConstants.STATUS_BUILDING_PROMPT);
             String prompt = buildPrompt(filter);
 
             // Step 2: Calling Gemini API
-            broadcastStatus(roomId, "Generating problem with AI (this may take 10-30s)...");
+            broadcastStatus(roomId, GameConstants.STATUS_GENERATING_AI);
             GeneratedProblemResponse response = callOpenAI(prompt);
 
             // Step 3: Converting to problem
-            broadcastStatus(roomId, "Processing problem details...");
+            broadcastStatus(roomId, GameConstants.STATUS_PROCESSING_DETAILS);
             Problem problem = convertToProblem(response, filter);
 
             // Step 4: Saving test cases
-            broadcastStatus(roomId, "Creating test cases...");
+            broadcastStatus(roomId, GameConstants.STATUS_CREATING_TESTS);
             saveTestCases(problem, response);
 
-            broadcastStatus(roomId, "Problem ready!");
+            broadcastStatus(roomId, GameConstants.STATUS_PROBLEM_READY);
             log.info("Successfully generated problem: {}", problem.getName());
             return problem;
 
         } catch (Exception e) {
-            broadcastStatus(roomId, "Failed to generate problem");
+            broadcastStatus(roomId, GameConstants.STATUS_FAILED_GENERATION);
             log.error("Failed to generate problem: {}", e.getMessage(), e);
             throw new RuntimeException("Problem generation failed: " + e.getMessage(), e);
         }
@@ -106,17 +183,25 @@ public class ProblemGenerationService {
     }
 
     /**
-     * Build the prompt for OpenAI API
+     * Build the prompt for OpenAI API using structured filter
      */
     private String buildPrompt(ProblemFilter filter) {
-        String userDescription = filter.hasDescription()
-                ? filter.description()
-                : "a general competitive programming problem";
+        String categoryName = filter.category().getDisplayName();
+        String subtypeClause = filter.hasSubtype()
+                ? String.format(" specifically focusing on %s", filter.subtype())
+                : "";
+        int targetRating = filter.difficulty().getAverageRating();
 
         return String.format(
                 """
-                        You are an expert competitive programming problem setter. Generate a HIGH-QUALITY competitive programming problem based on:
-                        "%s"
+                        You are an expert competitive programming problem setter. Generate a HIGH-QUALITY competitive programming problem:
+
+                        PROBLEM REQUIREMENTS:
+                        - Category: %s%s
+                        - Difficulty: %s (target rating: %d)
+                        - The problem MUST require %s to solve
+                        - DO NOT mix in other algorithmic concepts unless the category naturally requires them
+                        - Tags should ONLY include "%s" and directly related concepts
 
                         CRITICAL REQUIREMENTS:
                         1. The problem MUST be SOLVABLE and ALGORITHMICALLY SOUND
@@ -124,6 +209,7 @@ public class ProblemGenerationService {
                         3. Test cases MUST NOT contradict the stated constraints
                         4. Include explicit time/space complexity requirements when relevant
                         5. All test outputs must be VERIFIED CORRECT
+                        6. STRICTLY adhere to the category - do not introduce unrelated concepts
 
                         PROBLEM DESIGN GUIDELINES:
                         - Create a creative real-world scenario or story
@@ -166,10 +252,11 @@ public class ProblemGenerationService {
                         VERIFICATION CHECKLIST (verify before outputting):
                         ✓ All test inputs satisfy the stated constraints
                         ✓ All test outputs are algorithmically correct
-                        ✓ Problem requires the specified concept/algorithm
-                        ✓ Problem is not just "implement X"
+                        ✓ Problem requires %s as specified
+                        ✓ Problem is not just "implement %s"
                         ✓ Time/space complexity stated if relevant
                         ✓ Sample explanations walk through the solution
+                        ✓ NO unrelated algorithmic concepts mixed in
 
                         Return ONLY valid JSON (no markdown code fences):
                         {
@@ -192,11 +279,207 @@ public class ProblemGenerationService {
                           "hiddenTests": [
                             {"input": "test input", "output": "correct output"}
                           ],
-                          "difficulty": 1500,
-                          "tags": ["algorithm", "data-structure", "technique"]
+                          "difficulty": %d,
+                          "tags": ["%s"]
                         }
                         """,
-                userDescription);
+                categoryName,
+                subtypeClause,
+                filter.difficulty().getDisplayName(),
+                targetRating,
+                categoryName,
+                categoryName.toLowerCase(),
+                categoryName,
+                categoryName,
+                targetRating,
+                categoryName.toLowerCase());
+    }
+
+    /**
+     * Build prompt for generating 3 title options
+     */
+    private String buildTitleGenerationPrompt(ProblemFilter filter) {
+        String categoryName = filter.category().getDisplayName();
+        String subtypeClause = filter.hasSubtype()
+                ? String.format(" focusing on %s", filter.subtype())
+                : "";
+
+        return String.format(
+                """
+                        Generate exactly 3 creative competitive programming problem titles:
+
+                        Category: %s%s
+                        Difficulty: %s
+
+                        Requirements:
+                        - Each problem MUST require %s to solve
+                        - Titles should be creative and engaging (not generic like "Problem 1")
+                        - Include brief 1-2 sentence description
+                        - Specify exact concept/pattern needed
+                        - DO NOT mix in unrelated algorithmic concepts
+
+                        Return ONLY valid JSON (no markdown code fences):
+                        {
+                          "options": [
+                            {
+                              "title": "The Museum Heist",
+                              "briefDescription": "Maximize treasure collected while respecting weight limits and room constraints.",
+                              "concept": "0/1 Knapsack variant"
+                            },
+                            {
+                              "title": "Resource Allocation Game",
+                              "briefDescription": "Distribute limited resources optimally across multiple projects.",
+                              "concept": "Bounded Knapsack"
+                            },
+                            {
+                              "title": "The Treasure Collector",
+                              "briefDescription": "Navigate a maze collecting valuable items with capacity constraints.",
+                              "concept": "Multi-dimensional DP"
+                            }
+                          ]
+                        }
+                        """,
+                categoryName,
+                subtypeClause,
+                filter.difficulty().getDisplayName(),
+                categoryName);
+    }
+
+    /**
+     * Call OpenAI API specifically for title generation
+     */
+    private TitleGenerationResponse callOpenAIForTitles(String prompt) {
+        try {
+            // Build request payload
+            Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put("model", model);
+            requestBody.put("temperature", 0.8); // Slightly higher for creativity
+            requestBody.put("max_tokens", 500); // Less tokens needed for titles
+
+            Map<String, String> systemMessage = new HashMap<>();
+            systemMessage.put("role", "system");
+            systemMessage.put("content",
+                    "You are a competitive programming problem generator. Generate creative problem titles in valid JSON format.");
+
+            Map<String, String> userMessage = new HashMap<>();
+            userMessage.put("role", "user");
+            userMessage.put("content", prompt);
+
+            requestBody.put("messages", List.of(systemMessage, userMessage));
+
+            // Set headers
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.setBearerAuth(apiKey);
+
+            // Make request
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+            String response = restTemplate.postForObject(apiUrl, entity, String.class);
+
+            // Parse response
+            JsonNode root = objectMapper.readTree(response);
+            String jsonContent = root.get("choices").get(0)
+                    .get("message")
+                    .get("content")
+                    .asText();
+
+            // Extract JSON from markdown if present
+            jsonContent = extractJsonFromMarkdown(jsonContent);
+
+            // Parse title response
+            TitleGenerationResponse titleResponse = objectMapper.readValue(jsonContent,
+                    TitleGenerationResponse.class);
+
+            log.info("Successfully generated {} title options", titleResponse.getOptions().size());
+            return titleResponse;
+
+        } catch (Exception e) {
+            log.error("Error calling OpenAI API for titles: {}", e.getMessage());
+            throw new RuntimeException("Title generation API call failed", e);
+        }
+    }
+
+    /**
+     * Build prompt for full problem generation from selected title
+     */
+    private String buildFullProblemPrompt(ProblemFilter filter, ProblemTitleOption selectedTitle) {
+        String categoryName = filter.category().getDisplayName();
+        int targetRating = filter.difficulty().getAverageRating();
+
+        // Include subtype constraint if specified
+        String subtypeRequirement = filter.hasSubtype()
+                ? String.format("\n7. Problem MUST specifically use %s pattern/technique", filter.subtype())
+                : "";
+
+        String subtypeEmphasis = filter.hasSubtype()
+                ? String.format(" The problem MUST use the %s technique specifically.", filter.subtype())
+                : "";
+
+        return String.format("""
+                Generate a complete competitive programming problem with:
+
+                Title: %s
+                Brief Description: %s
+                Required Concept: %s
+                Category: %s
+                Difficulty: %s (target rating: %d)
+                %s
+
+                STRICT REQUIREMENTS:
+                1. Problem MUST require %s (%s) to solve%s
+                2. DO NOT mix in other unrelated concepts
+                3. Tags should ONLY include: ["%s" and directly related concepts]
+                4. Difficulty rating should be: %d
+                5. The problem description should expand on the brief description provided
+                6. All test cases must be solvable using the specified concept%s
+
+                CRITICAL REQUIREMENTS:
+                1. The problem MUST be SOLVABLE and ALGORITHMICALLY SOUND
+                2. Create a scenario that REQUIRES the algorithm (not just "implement X")
+                3. Test cases MUST NOT contradict the stated constraints
+                4. Include explicit time/space complexity requirements
+                5. All test outputs must be VERIFIED CORRECT
+
+                FORMAT SPECIFICATIONS:
+                [Same detailed format as before - input/output/constraints/samples/hidden tests]
+
+                Return ONLY valid JSON (no markdown code fences):
+                {
+                  "title": "%s",
+                  "description": "Full problem statement with HTML formatting",
+                  "inputFormat": "Precise input specification",
+                  "outputFormat": "Precise output specification",
+                  "constraints": ["constraint1", "constraint2"],
+                  "sampleTests": [
+                    {
+                      "input": "exact input",
+                      "output": "exact output",
+                      "explanation": "Step-by-step walkthrough"
+                    }
+                  ],
+                  "hiddenTests": [
+                    {"input": "test input", "output": "correct output"}
+                  ],
+                  "difficulty": %d,
+                  "tags": ["%s"]
+                }
+                """,
+                selectedTitle.getTitle(),
+                selectedTitle.getBriefDescription(),
+                selectedTitle.getConcept(),
+                categoryName,
+                filter.difficulty().getDisplayName(),
+                targetRating,
+                filter.hasSubtype() ? String.format("Specific Topic: %s", filter.subtype()) : "",
+                categoryName,
+                selectedTitle.getConcept(),
+                subtypeEmphasis,
+                categoryName.toLowerCase(),
+                targetRating,
+                subtypeRequirement,
+                selectedTitle.getTitle(),
+                targetRating,
+                categoryName.toLowerCase());
     }
 
     /**
