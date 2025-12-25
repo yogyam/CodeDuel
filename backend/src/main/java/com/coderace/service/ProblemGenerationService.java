@@ -249,7 +249,16 @@ public class ProblemGenerationService {
                         - Test 6-8: Corner cases (e.g., all same elements, alternating pattern)
                         - Test 9-10: Random valid cases
 
-                        VERIFICATION CHECKLIST (verify before outputting):
+                        VERIFICATION CHECKLIST (CRITICAL - verify EVERY item before outputting):
+
+                        === MATHEMATICAL CORRECTNESS (MANUALLY VERIFY) ===
+                        ✓ MANUALLY calculate expected output for EVERY sample test
+                        ✓ VERIFY arithmetic in explanations matches actual calculation
+                        ✓ DOUBLE-CHECK array indices, lengths, counts are EXACT
+                        ✓ RE-CHECK terminology ("subarray sum" vs "prefix sum", etc.)
+                        ✓ ENSURE output values match your hand-calculated results
+
+                        === STANDARD CHECKS ===
                         ✓ All test inputs satisfy the stated constraints
                         ✓ All test outputs are algorithmically correct
                         ✓ Problem requires %s as specified
@@ -280,7 +289,13 @@ public class ProblemGenerationService {
                             {"input": "test input", "output": "correct output"}
                           ],
                           "difficulty": %d,
-                          "tags": ["%s"]
+                          "tags": ["%s"],
+                          "skeletonCode": {
+                            "python": "# Starter code matching inputFormat/outputFormat with TODO comment",
+                            "java": "// Starter code matching inputFormat/outputFormat with TODO comment",
+                            "cpp": "// Starter code matching inputFormat/outputFormat with TODO comment",
+                            "javascript": "// Starter code matching inputFormat/outputFormat with TODO comment"
+                          }
                         }
                         """,
                 categoryName,
@@ -415,55 +430,138 @@ public class ProblemGenerationService {
                 ? String.format(" The problem MUST use the %s technique specifically.", filter.subtype())
                 : "";
 
-        return String.format("""
-                Generate a complete competitive programming problem with:
+        return String.format(
+                """
+                        Generate a complete competitive programming problem with:
 
-                Title: %s
-                Brief Description: %s
-                Required Concept: %s
-                Category: %s
-                Difficulty: %s (target rating: %d)
-                %s
+                        Title: %s
+                        Brief Description: %s
+                        Required Concept: %s
+                        Category: %s
+                        Difficulty: %s (target rating: %d)
+                        %s
 
-                STRICT REQUIREMENTS:
-                1. Problem MUST require %s (%s) to solve%s
-                2. DO NOT mix in other unrelated concepts
-                3. Tags should ONLY include: ["%s" and directly related concepts]
-                4. Difficulty rating should be: %d
-                5. The problem description should expand on the brief description provided
-                6. All test cases must be solvable using the specified concept%s
+                        STRICT REQUIREMENTS:
+                        1. Problem MUST require %s (%s) to solve%s
+                        2. DO NOT mix in other unrelated concepts
+                        3. Tags should ONLY include: ["%s" and directly related concepts]
+                        4. Difficulty rating should be: %d
+                        5. The problem description should expand on the brief description provided
+                        6. All test cases must be solvable using the specified concept%s
 
-                CRITICAL REQUIREMENTS:
-                1. The problem MUST be SOLVABLE and ALGORITHMICALLY SOUND
-                2. Create a scenario that REQUIRES the algorithm (not just "implement X")
-                3. Test cases MUST NOT contradict the stated constraints
-                4. Include explicit time/space complexity requirements
-                5. All test outputs must be VERIFIED CORRECT
+                        CRITICAL REQUIREMENTS:
+                        1. The problem MUST be SOLVABLE and ALGORITHMICALLY SOUND
+                        2. Create a scenario that REQUIRES the algorithm (not just "implement X")
+                        3. Test cases MUST NOT contradict the stated constraints
+                        4. Include explicit time/space complexity requirements
+                        5. All test outputs must be VERIFIED CORRECT
 
-                FORMAT SPECIFICATIONS:
-                [Same detailed format as before - input/output/constraints/samples/hidden tests]
+                        PROBLEM DESIGN GUIDELINES:
+                        - Create a creative real-world scenario or story
+                        - The problem should test UNDERSTANDING, not just memorization
+                        - Add a twist or variation to make it interesting
+                        - Make it challenging but not impossible for intermediate programmers
 
-                Return ONLY valid JSON (no markdown code fences):
-                {
-                  "title": "%s",
-                  "description": "Full problem statement with HTML formatting",
-                  "inputFormat": "Precise input specification",
-                  "outputFormat": "Precise output specification",
-                  "constraints": ["constraint1", "constraint2"],
-                  "sampleTests": [
-                    {
-                      "input": "exact input",
-                      "output": "exact output",
-                      "explanation": "Step-by-step walkthrough"
-                    }
-                  ],
-                  "hiddenTests": [
-                    {"input": "test input", "output": "correct output"}
-                  ],
-                  "difficulty": %d,
-                  "tags": ["%s"]
-                }
-                """,
+                        FORMAT SPECIFICATIONS:
+
+                        **Problem Statement** (300-500 words):
+                        - Engaging scenario with clear context
+                        - Precise problem requirements
+                        - Include sample walkthrough with small example
+
+                        **Input Format**:
+                        - Exact specification of each line
+                        - Specify data types and order clearly
+
+                        **Output Format**:
+                        - Exact specification of output
+                        - Specify formatting (e.g., space-separated, new lines)
+
+                        **Constraints**:
+                        - List ALL constraints with exact bounds
+                        - Include time/space complexity if algorithm-specific
+
+                        **Sample Test Cases** (2-3 examples):
+                        - Each must include: input, output, AND step-by-step explanation
+                        - Explanation should walk through the algorithm/logic
+                        - Cover different scenarios (normal case, edge case, etc.)
+
+                        **Hidden Test Cases** (exactly 10):
+                        - Test 1-2: Basic/normal cases
+                        - Test 3-5: Edge cases (MUST comply with constraints!)
+                          * If constraints say n≥1, do NOT use n=0
+                          * Test minimum and maximum bounds AS STATED in constraints
+                        - Test 6-8: Corner cases (e.g., all same elements, alternating pattern)
+                        - Test 9-10: Random valid cases
+
+                        VERIFICATION CHECKLIST (CRITICAL - verify EVERY item before outputting):
+
+                        === MATHEMATICAL CORRECTNESS (MANUALLY VERIFY) ===
+                        ✓ MANUALLY calculate expected output for EVERY sample test
+                        ✓ VERIFY arithmetic in explanations matches actual calculation
+                        ✓ DOUBLE-CHECK array indices, lengths, counts are EXACT
+                        ✓ RE-CHECK terminology ("subarray sum" vs "prefix sum", etc.)
+                        ✓ ENSURE output values match your hand-calculated results
+
+                        === STANDARD CHECKS ===
+                        ✓ All test inputs satisfy the stated constraints
+                        ✓ All test outputs are algorithmically correct
+                        ✓ Problem requires %s as specified
+                        ✓ Problem is not just "implement %s"
+                        ✓ Time/space complexity stated if relevant
+                        ✓ Sample explanations walk through the solution
+                        ✓ NO unrelated algorithmic concepts mixed in
+                        ✓ Skeleton code compiles/parses without errors for ALL languages
+                        ✓ Skeleton code reads input EXACTLY as specified in inputFormat
+                        ✓ Skeleton code outputs EXACTLY as specified in outputFormat
+                        ✓ Skeleton code has clear TODO comment marking algorithm implementation
+
+                        **Skeleton Code** (CRITICAL - Generate for 4 languages):
+
+                        For Python, Java, C++, and JavaScript, generate starter code that:
+                        1. Reads input EXACTLY matching the inputFormat
+                        2. Has a clearly marked function/section for algorithm implementation (with TODO comment)
+                        3. Outputs result EXACTLY matching the outputFormat
+                        4. Compiles/runs without syntax errors
+                        5. Works with the sample test cases (even if logic returns wrong answer)
+
+                        SKELETON CODE REQUIREMENTS:
+                        - Must be syntactically correct and executable
+                        - Must match the EXACT input format (number of inputs, data types, order)
+                        - Must match the EXACT output format (formatting, delimiters)
+                        - Must have TODO comment showing where to implement the algorithm
+                        - Must NOT implement the actual solution (leave logic as placeholder)
+                        - Use standard competitive programming patterns (Scanner for Java, cin for C++, etc.)
+                        - CRITICAL: In JSON strings, ALL backslashes must be escaped as \\\\ (e.g., \\\\n for newline, \\\\\\\\ for single backslash)
+                        - CRITICAL: Do NOT use regex patterns or escape sequences that aren't valid in JSON (only valid: \\\", \\\\, \\/, \\b, \\f, \\n, \\r, \\t)
+
+                        Return ONLY valid JSON (no markdown code fences):
+                        {
+                          "title": "%s",
+                          "description": "Full problem statement with HTML formatting",
+                          "inputFormat": "Precise input specification",
+                          "outputFormat": "Precise output specification",
+                          "constraints": ["constraint1", "constraint2"],
+                          "sampleTests": [
+                            {
+                              "input": "exact input",
+                              "output": "exact output",
+                              "explanation": "Step-by-step walkthrough"
+                            }
+                          ],
+                          "hiddenTests": [
+                            {"input": "test input", "output": "correct output"}
+                          ],
+                          "difficulty": %d,
+                          "tags": ["%s"],
+                          "skeletonCode": {
+                            "python": "# Python starter code\\nn = int(input())\\n\\n# TODO: Implement your algorithm here\\nresult = 0\\n\\nprint(result)",
+                            "java": "import java.util.*;\\n\\npublic class Solution {\\n    public static void main(String[] args) {\\n        Scanner sc = new Scanner(System.in);\\n        int n = sc.nextInt();\\n        \\n        // TODO: Implement your algorithm here\\n        int result = 0;\\n        \\n        System.out.println(result);\\n    }\\n}",
+                            "cpp": "#include <iostream>\\nusing namespace std;\\n\\nint main() {\\n    int n;\\n    cin >> n;\\n    \\n    // TODO: Implement your algorithm here\\n    int result = 0;\\n    \\n    cout << result << endl;\\n    return 0;\\n}",
+                            "javascript": "const readline = require('readline');\\nconst rl = readline.createInterface({\\n    input: process.stdin,\\n    output: process.stdout\\n});\\n\\nrl.on('line', (line) => {\\n    const n = parseInt(line);\\n    \\n    // TODO: Implement your algorithm here\\n    const result = 0;\\n    \\n    console.log(result);\\n    rl.close();\\n});"
+                          }
+                        }
+                        """,
                 selectedTitle.getTitle(),
                 selectedTitle.getBriefDescription(),
                 selectedTitle.getConcept(),
@@ -477,6 +575,8 @@ public class ProblemGenerationService {
                 categoryName.toLowerCase(),
                 targetRating,
                 subtypeRequirement,
+                categoryName, // For verification checklist: "Problem requires %s"
+                categoryName, // For verification checklist: "Problem is not just 'implement %s'"
                 selectedTitle.getTitle(),
                 targetRating,
                 categoryName.toLowerCase());
@@ -616,6 +716,18 @@ public class ProblemGenerationService {
             problem.setSampleOutput(firstSample.getOutput());
         }
 
+        // Skeleton code for different languages
+        problem.setSkeletonCode(response.getSkeletonCode());
+
+        // Debug: Log skeleton code availability
+        if (response.getSkeletonCode() != null && !response.getSkeletonCode().isEmpty()) {
+            log.info("Skeleton code generated for {} languages: {}",
+                    response.getSkeletonCode().size(),
+                    response.getSkeletonCode().keySet());
+        } else {
+            log.warn("No skeleton code generated for problem: {}", problem.getName());
+        }
+
         return problem;
     }
 
@@ -629,13 +741,20 @@ public class ProblemGenerationService {
         html.append(response.getDescription());
         html.append("</div>");
 
-        html.append("<div class='problem-input-output'>");
-        html.append("<h3>Input Format</h3>");
-        html.append("<p>").append(response.getInputFormat()).append("</p>");
+        // Only add input/output format sections if they're provided and not null
+        if (response.getInputFormat() != null && !response.getInputFormat().trim().isEmpty()) {
+            html.append("<div class='problem-input-output'>");
+            html.append("<h3>Input Format</h3>");
+            html.append("<p>").append(response.getInputFormat()).append("</p>");
+            html.append("</div>");
+        }
 
-        html.append("<h3>Output Format</h3>");
-        html.append("<p>").append(response.getOutputFormat()).append("</p>");
-        html.append("</div>");
+        if (response.getOutputFormat() != null && !response.getOutputFormat().trim().isEmpty()) {
+            html.append("<div class='problem-input-output'>");
+            html.append("<h3>Output Format</h3>");
+            html.append("<p>").append(response.getOutputFormat()).append("</p>");
+            html.append("</div>");
+        }
 
         html.append("<div class='problem-constraints'>'");
         html.append("<h3>Constraints</h3>");

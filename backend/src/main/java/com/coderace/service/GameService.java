@@ -124,11 +124,35 @@ public class GameService {
 
         // Check if this username matches the original host
         boolean isHost = userIdentifier.equals(room.getHostUsername());
-        User user = new User(handle, sessionId, isHost, userIdentifier);
+
+        // Check if user already exists in room (by username) - handles
+        // reconnection/refresh
+        User existingUser = room.getUserList().stream()
+                .filter(u -> u.getUsername().equals(userIdentifier))
+                .findFirst()
+                .orElse(null);
+
+        User user;
+        if (existingUser != null) {
+            // User is reconnecting (e.g., after page refresh)
+            // Remove the old session entry
+            room.removeUser(existingUser.getSessionId());
+
+            // Update the sessionId but preserve status and other properties
+            existingUser.setSessionId(sessionId);
+            existingUser.setCodeforcesHandle(handle); // Update handle in case it changed
+            user = existingUser;
+
+            log.info("User {} reconnected to room {} (preserved status: {}, username: {})",
+                    handle, roomId, user.getStatus(), userIdentifier);
+        } else {
+            // New user joining the room
+            user = new User(handle, sessionId, isHost, userIdentifier);
+            log.info("New user {} joined room {} (host: {}, username: {})",
+                    handle, roomId, isHost, userIdentifier);
+        }
 
         room.addUser(user);
-        log.info("Added user {} to room {} (host: {}, username: {})", handle, roomId, isHost, userIdentifier);
-
         return user;
     }
 
@@ -240,6 +264,8 @@ public class GameService {
 
     /**
      * Removes a user from a room (called on disconnect)
+     * Only removes users in WAITING state - preserves users during active games for
+     * reconnection
      * 
      * @param roomId    The room ID
      * @param sessionId The session ID of the user
@@ -251,8 +277,16 @@ public class GameService {
             return;
         }
 
+        // If game is active (STARTED), don't remove the user - allow them to reconnect
+        // Only remove users during WAITING or FINISHED state
+        if (room.getState() == GameRoom.GameState.STARTED) {
+            log.info("User {} disconnected from active game in room {} - keeping in room for reconnection",
+                    sessionId, roomId);
+            return;
+        }
+
         room.removeUser(sessionId);
-        log.info("Removed user {} from room {}", sessionId, roomId);
+        log.info("Removed user {} from room {} (state: {})", sessionId, roomId, room.getState());
 
         // Clean up empty rooms
         if (room.isEmpty()) {

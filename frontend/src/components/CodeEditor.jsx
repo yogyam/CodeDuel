@@ -1,11 +1,23 @@
 import { Editor } from '@monaco-editor/react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import './CodeEditor.css';
 
-function CodeEditor({ onSubmit, problemId, disabled }) {
-    const [code, setCode] = useState(getStarterCode('python'));
+function CodeEditor({ onSubmit, problemId, disabled, skeletonCode }) {
+    const [code, setCode] = useState('');
     const [language, setLanguage] = useState('python');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [hasUserCode, setHasUserCode] = useState(false); // Track if user has modified code
+
+    // Initialize code when problem loads or language changes
+    useEffect(() => {
+        if (!hasUserCode && skeletonCode && skeletonCode[language]) {
+            // Use skeleton code from the problem
+            setCode(skeletonCode[language]);
+        } else if (!hasUserCode) {
+            // Fall back to generic starter code if no skeleton provided
+            setCode(getStarterCode(language));
+        }
+    }, [language, skeletonCode, hasUserCode]);
 
     const handleSubmit = async () => {
         if (!code.trim()) {
@@ -22,8 +34,18 @@ function CodeEditor({ onSubmit, problemId, disabled }) {
     };
 
     const handleLanguageChange = (newLang) => {
-        setLanguage(newLang);
-        setCode(getStarterCode(newLang));
+        // Only switch if user hasn't written code yet
+        if (!hasUserCode || window.confirm('Switch language? Your current code will be replaced with starter code.')) {
+            setLanguage(newLang);
+            setHasUserCode(false); // Reset to allow new skeleton code
+        }
+    };
+
+    const handleCodeChange = (value) => {
+        setCode(value || '');
+        if (value && value.trim()) {
+            setHasUserCode(true); // User has started editing
+        }
     };
 
     return (
@@ -66,7 +88,7 @@ function CodeEditor({ onSubmit, problemId, disabled }) {
                 height="500px"
                 language={getMonacoLanguage(language)}
                 value={code}
-                onChange={(value) => setCode(value || '')}
+                onChange={handleCodeChange}
                 theme="vs-dark"
                 options={{
                     minimap: { enabled: false },

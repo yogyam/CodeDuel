@@ -443,6 +443,7 @@ function GameRoom() {
               onSubmit={handleCodeSubmit}
               problemId={gameState.problem?.problemId}
               disabled={false}
+              skeletonCode={gameState.problem?.skeletonCode}
             />
           </div>
         )}

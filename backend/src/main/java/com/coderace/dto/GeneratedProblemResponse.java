@@ -5,6 +5,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * DTO for Gemini API problem generation response
@@ -23,6 +24,7 @@ public class GeneratedProblemResponse {
     private List<HiddenTest> hiddenTests;
     private Integer difficulty;
     private List<String> tags;
+    private Map<String, String> skeletonCode; // language -> starter code
 
     @Data
     @NoArgsConstructor

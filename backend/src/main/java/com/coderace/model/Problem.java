@@ -6,6 +6,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Represents a coding problem (from Codeforces or LLM-generated)
@@ -33,6 +34,7 @@ public class Problem {
     private Boolean isVerified; // Admin verification flag
     private String sampleInput; // Sample test input for display
     private String sampleOutput; // Sample test output for display
+    private Map<String, String> skeletonCode; // language -> starter code (e.g., "python" -> code)
 
     /**
      * Returns the full problem URL (Codeforces only)
