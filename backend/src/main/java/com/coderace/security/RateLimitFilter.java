@@ -17,9 +17,11 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.springframework.scheduling.annotation.Scheduled;
+
 /**
- * Rate Limiting Filter to prevent brute-force attacks
- * Limits requests per IP address for authentication endpoints
+ * Rate Limiting Filter to prevent brute-force attacks and API abuse
+ * Limits requests per IP address for authentication and expensive API endpoints
  */
 @Component
 @Slf4j
@@ -28,7 +30,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
     // Store buckets per IP address
     private final Map<String, Bucket> buckets = new ConcurrentHashMap<>();
 
-    // Rate limits: 10 requests per minute for auth endpoints
+    // Rate limits: 10 requests per minute
     private static final int MAX_REQUESTS_PER_MINUTE = 10;
 
     @Override
@@ -39,10 +41,13 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
         String path = request.getRequestURI();
 
-        // Only apply rate limiting to authentication endpoints
+        // Apply rate limiting to authentication and expensive API endpoints
         if (path.startsWith("/api/auth/login") ||
                 path.startsWith("/api/auth/register") ||
-                path.startsWith("/api/auth/codeforces-handle")) {
+                path.startsWith("/api/auth/codeforces-handle") ||
+                path.startsWith("/api/game/generate-titles") ||
+                path.startsWith("/api/game/generate-problem-from-title") ||
+                path.startsWith("/api/game/create-room")) {
 
             String clientIP = getClientIP(request);
             Bucket bucket = resolveBucket(clientIP);
@@ -61,7 +66,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
                                 "\"retryAfter\": \"60 seconds\"}");
             }
         } else {
-            // Not an auth endpoint, skip rate limiting
+            // Not a rate-limited endpoint, skip
             filterChain.doFilter(request, response);
         }
     }
@@ -101,12 +106,12 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     /**
      * Cleanup old buckets periodically to prevent memory leaks
-     * This could be enhanced with a scheduled task if needed
+     * Runs every hour to clear inactive rate limit buckets
      */
+    @Scheduled(fixedRate = 3600000) // Every 1 hour (3600000ms)
     public void cleanupOldBuckets() {
-        // Simple cleanup: remove all buckets
-        // In production, you might want to only remove inactive ones
+        int size = buckets.size();
         buckets.clear();
-        log.info("Rate limit buckets cleared");
+        log.info("Rate limit buckets cleared: {} buckets removed", size);
     }
 }
