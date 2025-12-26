@@ -23,6 +23,10 @@ public class CodeExecutionService {
     private static final int MAX_CODE_LENGTH = 10000; // 10KB
     private static final int EXECUTION_TIMEOUT = 5000; // 5 seconds
 
+    // Piston API rate limit: 1 request per 200ms
+    // We use 250ms to be safe
+    private static final int PISTON_RATE_LIMIT_MS = 250;
+
     // Whitelist of allowed languages for security
     private static final Set<String> ALLOWED_LANGUAGES = Set.of(
             "python", "java", "cpp", "javascript", "c", "go", "rust");
@@ -139,6 +143,19 @@ public class CodeExecutionService {
                     }
                     log.info(error);
                     break; // Stop on first wrong answer
+                }
+
+                // Rate limiting: Wait between test cases to respect Piston API limits
+                // Skip delay after the last test case or if we're about to break
+                if (i < testCases.size() - 1) {
+                    try {
+                        Thread.sleep(PISTON_RATE_LIMIT_MS);
+                        log.debug("Rate limit delay: {}ms before next test case", PISTON_RATE_LIMIT_MS);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        log.warn("Rate limit delay interrupted");
+                        break;
+                    }
                 }
 
             } catch (Exception e) {

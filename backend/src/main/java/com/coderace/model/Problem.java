@@ -36,6 +36,13 @@ public class Problem {
     private String sampleOutput; // Sample test output for display
     private Map<String, String> skeletonCode; // language -> starter code (e.g., "python" -> code)
 
+    // Validation metadata
+    private Boolean isValidated; // Whether validation was performed
+    private ValidationStatus validationStatus; // Validation result status
+    private String validationErrors; // JSON string of errors/warnings
+    private LocalDateTime validatedAt; // When validation was performed
+    private Integer qualityScore; // 0-100 quality score from validation
+
     /**
      * Returns the full problem URL (Codeforces only)
      */

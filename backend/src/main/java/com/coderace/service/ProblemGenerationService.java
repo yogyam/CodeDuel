@@ -5,6 +5,8 @@ import com.coderace.dto.GenerateTitlesResponse;
 import com.coderace.dto.ProblemFilter;
 import com.coderace.dto.ProblemTitleOption;
 import com.coderace.dto.TitleGenerationResponse;
+import com.coderace.dto.ValidationResult;
+import com.coderace.config.ValidationConfig;
 import com.coderace.model.Problem;
 import com.coderace.model.TestCase;
 import com.coderace.repository.TestCaseRepository;
@@ -51,13 +53,16 @@ public class ProblemGenerationService {
     private final ObjectMapper objectMapper;
     private final TestCaseRepository testCaseRepository;
     private final SimpMessagingTemplate messagingTemplate;
+    private final ProblemValidationService validationService;
 
     public ProblemGenerationService(RestTemplate restTemplate, ObjectMapper objectMapper,
-            TestCaseRepository testCaseRepository, SimpMessagingTemplate messagingTemplate) {
+            TestCaseRepository testCaseRepository, SimpMessagingTemplate messagingTemplate,
+            ProblemValidationService validationService) {
         this.restTemplate = restTemplate;
         this.objectMapper = objectMapper;
         this.testCaseRepository = testCaseRepository;
         this.messagingTemplate = messagingTemplate;
+        this.validationService = validationService;
     }
 
     /**
@@ -96,6 +101,7 @@ public class ProblemGenerationService {
 
     /**
      * Step 2: Generate full problem from selected title
+     * Now includes validation with retry logic
      * 
      * @param filter        Problem filter with category/difficulty
      * @param selectedTitle The title option user selected
@@ -106,27 +112,74 @@ public class ProblemGenerationService {
     public Problem generateProblemFromTitle(ProblemFilter filter, ProblemTitleOption selectedTitle, String roomId) {
         log.info("Generating full problem from title: {}", selectedTitle.getTitle());
 
-        try {
-            broadcastStatus(roomId, GameConstants.STATUS_GENERATING_PROBLEM);
+        ValidationConfig config = validationService.getValidationConfig();
+        int maxRetries = config.isEnabled() ? config.getMaxRetries() : 0;
+        int attemptNumber = 0;
+        ValidationResult validation = null;
 
-            String prompt = buildFullProblemPrompt(filter, selectedTitle);
-            GeneratedProblemResponse response = callOpenAI(prompt);
+        while (attemptNumber <= maxRetries) {
+            attemptNumber++;
 
-            broadcastStatus(roomId, GameConstants.STATUS_PROCESSING_DETAILS);
-            Problem problem = convertToProblem(response, filter);
+            try {
+                if (attemptNumber > 1) {
+                    log.info("Regeneration attempt {} of {}", attemptNumber, maxRetries + 1);
+                    broadcastStatus(roomId, "Regenerating problem (attempt " + attemptNumber + ")...");
+                }
 
-            broadcastStatus(roomId, GameConstants.STATUS_CREATING_TESTS);
-            saveTestCases(problem, response);
+                broadcastStatus(roomId, GameConstants.STATUS_GENERATING_PROBLEM);
+                String prompt = buildFullProblemPrompt(filter, selectedTitle);
+                GeneratedProblemResponse response = callOpenAI(prompt);
 
-            broadcastStatus(roomId, GameConstants.STATUS_PROBLEM_READY);
-            log.info("Successfully generated full problem: {}", problem.getName());
-            return problem;
+                // Validate the generated problem
+                if (config.isEnabled()) {
+                    broadcastStatus(roomId, "Validating problem quality...");
+                    validation = validationService.validateProblem(response, filter);
 
-        } catch (Exception e) {
-            broadcastStatus(roomId, GameConstants.STATUS_FAILED_GENERATION);
-            log.error("Failed to generate full problem: {}", e.getMessage(), e);
-            throw new RuntimeException("Problem generation failed: " + e.getMessage(), e);
+                    if (!validation.isValid()) {
+                        log.warn("Problem validation failed: {}", validation.getErrors());
+
+                        if (attemptNumber <= maxRetries) {
+                            // Will retry
+                            continue;
+                        } else {
+                            // Max retries exhausted
+                            broadcastStatus(roomId, GameConstants.STATUS_FAILED_GENERATION);
+                            throw new RuntimeException("Problem validation failed after " + maxRetries + " retries: " +
+                                    String.join(", ", validation.getErrors()));
+                        }
+                    }
+
+                    log.info("Problem validation passed with quality score: {}", validation.getQualityScore());
+                }
+
+                // Validation passed or disabled - create problem
+                broadcastStatus(roomId, GameConstants.STATUS_PROCESSING_DETAILS);
+                Problem problem = convertToProblem(response, filter, validation);
+
+                broadcastStatus(roomId, GameConstants.STATUS_CREATING_TESTS);
+                saveTestCases(problem, response);
+
+                broadcastStatus(roomId, GameConstants.STATUS_PROBLEM_READY);
+                log.info("Successfully generated and validated problem: {}", problem.getName());
+                return problem;
+
+            } catch (RuntimeException e) {
+                if (attemptNumber > maxRetries) {
+                    // This was the last attempt, rethrow
+                    throw e;
+                }
+                // Otherwise, loop will retry
+                log.warn("Attempt {} failed: {}", attemptNumber, e.getMessage());
+            } catch (Exception e) {
+                broadcastStatus(roomId, GameConstants.STATUS_FAILED_GENERATION);
+                log.error("Failed to generate full problem: {}", e.getMessage(), e);
+                throw new RuntimeException("Problem generation failed: " + e.getMessage(), e);
+            }
         }
+
+        // Should never reach here, but just in case
+        broadcastStatus(roomId, GameConstants.STATUS_FAILED_GENERATION);
+        throw new RuntimeException("Problem generation failed after all retry attempts");
     }
 
     /**
@@ -154,7 +207,7 @@ public class ProblemGenerationService {
 
             // Step 3: Converting to problem
             broadcastStatus(roomId, GameConstants.STATUS_PROCESSING_DETAILS);
-            Problem problem = convertToProblem(response, filter);
+            Problem problem = convertToProblem(response, filter, null); // No validation in one-step generation
 
             // Step 4: Saving test cases
             broadcastStatus(roomId, GameConstants.STATUS_CREATING_TESTS);
@@ -689,8 +742,10 @@ public class ProblemGenerationService {
 
     /**
      * Convert Gemini response to Problem entity
+     * Now includes validation metadata
      */
-    private Problem convertToProblem(GeneratedProblemResponse response, ProblemFilter filter) {
+    private Problem convertToProblem(GeneratedProblemResponse response, ProblemFilter filter,
+            ValidationResult validation) {
         Problem problem = new Problem();
 
         // Generate unique problem ID
@@ -708,6 +763,30 @@ public class ProblemGenerationService {
         problem.setLlmModel("gpt-4o-mini");
         problem.setGeneratedAt(LocalDateTime.now());
         problem.setIsVerified(false);
+
+        // Validation metadata (if validation was performed)
+        if (validation != null) {
+            problem.setIsValidated(true);
+            problem.setValidationStatus(validation.isValid() ? com.coderace.model.ValidationStatus.PASSED
+                    : com.coderace.model.ValidationStatus.FAILED);
+            problem.setQualityScore((int) Math.round(validation.getQualityScore()));
+            problem.setValidatedAt(LocalDateTime.now());
+
+            // Store validation errors as JSON if any exist
+            if (validation.hasErrors() || validation.hasWarnings()) {
+                try {
+                    Map<String, Object> errorData = Map.of(
+                            "errors", validation.getErrors(),
+                            "warnings", validation.getWarnings());
+                    problem.setValidationErrors(objectMapper.writeValueAsString(errorData));
+                } catch (Exception e) {
+                    log.warn("Failed to serialize validation errors: {}", e.getMessage());
+                }
+            }
+        } else {
+            problem.setIsValidated(false);
+            problem.setValidationStatus(com.coderace.model.ValidationStatus.SKIPPED);
+        }
 
         // Sample test case for display
         if (!response.getSampleTests().isEmpty()) {
