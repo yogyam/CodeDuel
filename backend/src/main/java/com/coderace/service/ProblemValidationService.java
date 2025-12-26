@@ -231,11 +231,11 @@ public class ProblemValidationService {
     private String generateReferenceSolution(GeneratedProblemResponse problem) throws Exception {
         String prompt = buildSolutionPrompt(problem);
 
-        // Call LLM
+        // Call LLM with lower temperature for more accurate solutions
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("model", model);
-        requestBody.put("temperature", 0.3); // Lower temperature for more deterministic solutions
-        requestBody.put("max_tokens", 1000);
+        requestBody.put("temperature", 0.1); // Very low for deterministic, correct solutions
+        requestBody.put("max_tokens", 1500); // Increased for more complex solutions
 
         Map<String, String> systemMessage = new HashMap<>();
         systemMessage.put("role", "system");
@@ -271,29 +271,88 @@ public class ProblemValidationService {
 
     /**
      * Build prompt for generating reference solution
+     * Uses comprehensive guidance to ensure correct, working solutions
      */
     private String buildSolutionPrompt(GeneratedProblemResponse problem) {
         StringBuilder prompt = new StringBuilder();
-        prompt.append("Generate a correct Python solution for this problem:\n\n");
-        prompt.append("PROBLEM: ").append(problem.getTitle()).append("\n\n");
+
+        // Role and context
+        prompt.append("You are an expert competitive programmer solving this problem.\n\n");
+
+        prompt.append("=== PROBLEM ===\n");
+        prompt.append("Title: ").append(problem.getTitle()).append("\n\n");
         prompt.append(problem.getDescription()).append("\n\n");
-        prompt.append("INPUT FORMAT:\n").append(problem.getInputFormat()).append("\n\n");
-        prompt.append("OUTPUT FORMAT:\n").append(problem.getOutputFormat()).append("\n\n");
-        prompt.append("CONSTRAINTS:\n");
+
+        prompt.append("=== INPUT FORMAT ===\n");
+        prompt.append(problem.getInputFormat()).append("\n\n");
+
+        prompt.append("=== OUTPUT FORMAT ===\n");
+        prompt.append(problem.getOutputFormat()).append("\n\n");
+
+        prompt.append("=== CONSTRAINTS ===\n");
         for (String constraint : problem.getConstraints()) {
             prompt.append("- ").append(constraint).append("\n");
         }
-        prompt.append("\nSAMPLE TEST:\n");
-        if (!problem.getSampleTests().isEmpty()) {
-            GeneratedProblemResponse.SampleTest sample = problem.getSampleTests().get(0);
-            prompt.append("Input: ").append(sample.getInput()).append("\n");
-            prompt.append("Output: ").append(sample.getOutput()).append("\n");
-            prompt.append("Explanation: ").append(sample.getExplanation()).append("\n");
+        prompt.append("\n");
+
+        // Include ALL sample tests with explanations
+        prompt.append("=== SAMPLE TESTS (Study these carefully!) ===\n\n");
+        for (int i = 0; i < problem.getSampleTests().size(); i++) {
+            GeneratedProblemResponse.SampleTest sample = problem.getSampleTests().get(i);
+            prompt.append("Sample Test ").append(i + 1).append(":\n");
+            prompt.append("Input:\n").append(sample.getInput()).append("\n");
+            prompt.append("Expected Output:\n").append(sample.getOutput()).append("\n");
+            prompt.append("Explanation:\n").append(sample.getExplanation()).append("\n\n");
         }
 
-        prompt.append("\nGenerate ONLY the Python code (no explanations, no markdown). ");
-        prompt.append("The code should read from stdin and write to stdout. ");
-        prompt.append("Make sure it handles all edge cases and follows the constraints.");
+        // Algorithmic approach section
+        prompt.append("=== YOUR TASK ===\n\n");
+        prompt.append("STEP 1: UNDERSTAND THE ALGORITHM\n");
+        prompt.append("- Read the sample test explanations above CAREFULLY\n");
+        prompt.append("- They show EXACTLY how to solve this problem\n");
+        prompt.append("- Your solution MUST follow the same logic/steps\n");
+        prompt.append(
+                "- If the explanation mentions a specific technique (e.g., 'DFS', 'sliding window', 'hash map'), you MUST use it\n\n");
+
+        prompt.append("STEP 2: PLAN YOUR SOLUTION\n");
+        prompt.append("Before coding, mentally outline:\n");
+        prompt.append("1. How to parse the input correctly\n");
+        prompt.append("2. What data structures you need (array, hash map, tree, etc.)\n");
+        prompt.append("3. The main algorithm (following the sample explanations)\n");
+        prompt.append("4. How to format the output correctly\n\n");
+
+        prompt.append("STEP 3: IMPLEMENT CORRECTLY\n");
+        prompt.append("- Read from stdin using input()\n");
+        prompt.append("- Parse ALL inputs as specified in INPUT FORMAT\n");
+        prompt.append("- Implement the algorithm shown in sample explanations\n");
+        prompt.append("- Handle edge cases from constraints\n");
+        prompt.append("- Print to stdout with EXACT formatting from OUTPUT FORMAT\n\n");
+
+        prompt.append("STEP 4: VERIFY YOUR SOLUTION\n");
+        prompt.append("Mentally trace through Sample Test 1:\n");
+        prompt.append("- Input: ").append(problem.getSampleTests().get(0).getInput()).append("\n");
+        prompt.append("- Your code should output: ").append(problem.getSampleTests().get(0).getOutput()).append("\n");
+        prompt.append("- Does your logic produce this output? If not, fix it before submitting.\n\n");
+
+        // Code requirements
+        prompt.append("=== CODE REQUIREMENTS ===\n");
+        prompt.append("1. Write complete, working Python 3 code\n");
+        prompt.append("2. Include NO explanatory comments (just code)\n");
+        prompt.append("3. NO markdown formatting (no ```python, just raw code)\n");
+        prompt.append("4. Start directly with imports or code\n");
+        prompt.append("5. Use ONLY standard Python libraries (no external packages)\n");
+        prompt.append("6. Handle all input/output exactly as specified\n");
+        prompt.append("7. Follow the algorithm from sample explanations\n\n");
+
+        // Edge case reminders
+        prompt.append("=== CRITICAL REMINDERS ===\n");
+        prompt.append("- Pay attention to 0-indexing vs 1-indexing\n");
+        prompt.append("- Check if output should have newlines or spaces\n");
+        prompt.append("- Handle the constraints boundaries (min/max values)\n");
+        prompt.append("- Convert string inputs to int/float where needed\n");
+        prompt.append("- Print output EXACTLY as shown in sample outputs\n\n");
+
+        prompt.append("Now write your Python solution:");
 
         return prompt.toString();
     }

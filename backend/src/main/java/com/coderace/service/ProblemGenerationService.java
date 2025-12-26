@@ -469,6 +469,7 @@ public class ProblemGenerationService {
 
     /**
      * Build prompt for full problem generation from selected title
+     * Uses test-first, educational approach for better quality
      */
     private String buildFullProblemPrompt(ProblemFilter filter, ProblemTitleOption selectedTitle) {
         String categoryName = filter.category().getDisplayName();
@@ -485,133 +486,196 @@ public class ProblemGenerationService {
 
         return String.format(
                 """
-                        Generate a complete competitive programming problem with:
+                        You are an expert competitive programming problem author creating educational, solvable problems.
 
+                        === PROBLEM TO CREATE ===
                         Title: %s
-                        Brief Description: %s
-                        Required Concept: %s
+                        Brief: %s
+                        Required Algorithm: %s
                         Category: %s
                         Difficulty: %s (target rating: %d)
                         %s
 
-                        STRICT REQUIREMENTS:
-                        1. Problem MUST require %s (%s) to solve%s
-                        2. DO NOT mix in other unrelated concepts
-                        3. Tags should ONLY include: ["%s" and directly related concepts]
-                        4. Difficulty rating should be: %d
-                        5. The problem description should expand on the brief description provided
-                        6. All test cases must be solvable using the specified concept%s
+                        === YOUR APPROACH (Follow this order!) ===
 
-                        CRITICAL REQUIREMENTS:
-                        1. The problem MUST be SOLVABLE and ALGORITHMICALLY SOUND
-                        2. Create a scenario that REQUIRES the algorithm (not just "implement X")
-                        3. Test cases MUST NOT contradict the stated constraints
-                        4. Include explicit time/space complexity requirements
-                        5. All test outputs must be VERIFIED CORRECT
+                        STEP 1: DESIGN THE ALGORITHM FIRST
+                        Before writing anything else, think through:
+                        - What is the core algorithm/technique required (%s)?
+                        - What are the key steps someone would take to solve this?
+                        - What data structures are needed?
+                        - What's the time/space complexity?
 
-                        PROBLEM DESIGN GUIDELINES:
-                        - Create a creative real-world scenario or story
-                        - The problem should test UNDERSTANDING, not just memorization
-                        - Add a twist or variation to make it interesting
-                        - Make it challenging but not impossible for intermediate programmers
+                        STEP 2: CREATE SAMPLE TEST CASES (Most Important!)
+                        Create 2-3 sample tests where you:
+                        1. Choose simple, clear inputs
+                        2. MANUALLY calculate the outputs step-by-step
+                        3. Write a DETAILED explanation showing:
+                           - Initial state
+                           - Each step of the algorithm
+                           - The reasoning/logic at each step
+                           - The final answer
 
-                        FORMAT SPECIFICATIONS:
+                        CRITICAL: These explanations must be SO CLEAR that someone could implement
+                        the solution just by reading them. They will be used to generate reference
+                        solutions, so include ALL necessary details!
 
-                        **Problem Statement** (300-500 words):
-                        - Engaging scenario with clear context
-                        - Precise problem requirements
-                        - Include sample walkthrough with small example
+                        Example of a GOOD explanation:
+                        "Input: [2, 7, 11, 15], target = 9
+
+                         Step 1: Initialize empty hash map {}
+                         Step 2: Iterate through array
+                           - index 0: num=2, complement=9-2=7
+                           - 7 not in map, add {2: 0}
+                           - index 1: num=7, complement=9-7=2
+                           - 2 IS in map at index 0
+                           - Return [0, 1]
+
+                         Output: [0, 1]"
+
+                        Example of BAD explanation (too vague):
+                        "Use a hash map to find the two numbers that sum to target."
+
+                        STEP 3: CREATE HIDDEN TEST CASES
+                        Generate exactly 10 hidden tests:
+                        - Tests 1-2: Simple, basic cases
+                        - Tests 3-5: Edge cases (minimum/maximum values from constraints)
+                        - Tests 6-8: Corner cases (empty, single element, all same, etc.)
+                        - Tests 9-10: Random valid cases
+
+                        For EACH test, manually calculate the correct output before adding it!
+
+                        STEP 4: WRITE THE PROBLEM DESCRIPTION
+                        Based on the algorithm and test cases above:
+                        - Create an engaging narrative/scenario
+                        - Clearly state the objective
+                        - Define input/output formats precisely
+                        - List all constraints with exact bounds
+                        - Walk through one sample test in the description
+
+                        === STRICT REQUIREMENTS ===
+
+                        1. ALGORITHM FOCUS:
+                           - Problem MUST require %s (%s) to solve%s
+                           - DO NOT mix in other unrelated algorithmic concepts
+                           - The problem should APPLY the algorithm, not just ask to implement it
+
+                        2. CLARITY & PRECISION:
+                           - Input format: Specify EXACT number of lines, data types, order
+                           - Output format: Specify EXACT formatting (spaces, newlines, etc.)
+                           - Constraints: Include ALL bounds (e.g., "1 ≤ n ≤ 10^5", not just "small n")
+                           - Terminology: Use precise terms (e.g., "subarray" vs "subsequence")
+
+                        3. TEST CASE CORRECTNESS:
+                           - ALL test inputs must satisfy the stated constraints
+                           - ALL test outputs must be mathematically/algorithmically correct
+                           - Sample explanations must match the actual calculations
+                           - NO contradictions between constraints and tests
+
+                        4. EDUCATIONAL VALUE:
+                           - Sample explanations must teach the algorithm (very detailed!)
+                           - Include hints about approach in the problem description
+                           - State time/space complexity requirements if relevant
+                           - Progressive difficulty in test cases (easy → hard)
+
+                        5. SOLVABILITY:
+                           - The problem must be solvable within 30-60 minutes
+                           - Solution should be implementable in 50-100 lines of code
+                           - No ambiguity in problem statement
+                           - Test cases should cover all edge cases mentioned in constraints
+
+                        === FORMAT SPECIFICATIONS ===
+
+                        **Problem Description** (300-500 words):
+                        - Engaging real-world scenario or narrative
+                        - Clear problem objective
+                        - Precise requirements
+                        - Sample walkthrough with explanation
+                        - Hints about the approach (without giving it away)
 
                         **Input Format**:
-                        - Exact specification of each line
-                        - Specify data types and order clearly
+                        - Line-by-line specification
+                        - Data types for each input
+                        - Order of inputs
+                        - Example: "First line: integer n (1 ≤ n ≤ 1000)"
 
                         **Output Format**:
-                        - Exact specification of output
-                        - Specify formatting (e.g., space-separated, new lines)
+                        - Exact output specification
+                        - Formatting details (space-separated, one per line, etc.)
+                        - Precision for floating point if applicable
 
                         **Constraints**:
-                        - List ALL constraints with exact bounds
-                        - Include time/space complexity if algorithm-specific
+                        - ALL constraints with exact numerical bounds
+                        - Time complexity requirement (if algorithm-specific)
+                        - Space complexity requirement (if relevant)
+                        - Special constraints (e.g., "all elements are distinct")
 
-                        **Sample Test Cases** (2-3 examples):
-                        - Each must include: input, output, AND step-by-step explanation
-                        - Explanation should walk through the algorithm/logic
-                        - Cover different scenarios (normal case, edge case, etc.)
+                        **Sample Tests** (2-3 examples):
+                        Each MUST include:
+                        - Input: Exact input string
+                        - Output: Exact output string
+                        - Explanation: VERY DETAILED step-by-step walkthrough showing:
+                          * The algorithm steps
+                          * Intermediate calculations
+                          * Why each step is taken
+                          * How the final answer is derived
 
-                        **Hidden Test Cases** (exactly 10):
-                        - Test 1-2: Basic/normal cases
-                        - Test 3-5: Edge cases (MUST comply with constraints!)
-                          * If constraints say n≥1, do NOT use n=0
-                          * Test minimum and maximum bounds AS STATED in constraints
-                        - Test 6-8: Corner cases (e.g., all same elements, alternating pattern)
-                        - Test 9-10: Random valid cases
+                        **Hidden Tests** (exactly 10):
+                        - Diverse coverage of input space
+                        - Edge cases at constraint boundaries
+                        - Corner cases (empty, single element, maximum size, etc.)
+                        - All tests must be valid and have correct outputs
 
-                        VERIFICATION CHECKLIST (CRITICAL - verify EVERY item before outputting):
+                        === VERIFICATION CHECKLIST ===
 
-                        === MATHEMATICAL CORRECTNESS (MANUALLY VERIFY) ===
-                        ✓ MANUALLY calculate expected output for EVERY sample test
-                        ✓ VERIFY arithmetic in explanations matches actual calculation
-                        ✓ DOUBLE-CHECK array indices, lengths, counts are EXACT
-                        ✓ RE-CHECK terminology ("subarray sum" vs "prefix sum", etc.)
-                        ✓ ENSURE output values match your hand-calculated results
-
-                        === STANDARD CHECKS ===
-                        ✓ All test inputs satisfy the stated constraints
-                        ✓ All test outputs are algorithmically correct
-                        ✓ Problem requires %s as specified
-                        ✓ Problem is not just "implement %s"
+                        Before finalizing, verify:
+                        ✓ Sample test explanations are extremely detailed (5+ sentences each)
+                        ✓ Explanations show the exact algorithm steps
+                        ✓ All test outputs are manually calculated and verified
+                        ✓ Constraints match all test inputs
+                        ✓ Input/output formats are crystal clear
+                        ✓ Problem requires the specified algorithm (%s)
+                        ✓ Problem tests understanding, not just implementation
                         ✓ Time/space complexity stated if relevant
-                        ✓ Sample explanations walk through the solution
-                        ✓ NO unrelated algorithmic concepts mixed in
-                        ✓ Skeleton code compiles/parses without errors for ALL languages
-                        ✓ Skeleton code reads input EXACTLY as specified in inputFormat
-                        ✓ Skeleton code outputs EXACTLY as specified in outputFormat
-                        ✓ Skeleton code has clear TODO comment marking algorithm implementation
+                        ✓ No unrelated concepts mixed in
+                        ✓ Skeleton code has correct I/O format%s
 
-                        **Skeleton Code** (CRITICAL - Generate for 4 languages):
+                        === SKELETON CODE ===
 
-                        For Python, Java, C++, and JavaScript, generate starter code that:
-                        1. Reads input EXACTLY matching the inputFormat
-                        2. Has a clearly marked function/section for algorithm implementation (with TODO comment)
-                        3. Outputs result EXACTLY matching the outputFormat
-                        4. Compiles/runs without syntax errors
-                        5. Works with the sample test cases (even if logic returns wrong answer)
+                        Generate starter code for Python, Java, C++, JavaScript that:
+                        1. Reads input EXACTLY matching inputFormat
+                        2. Has TODO comment marking where to implement algorithm
+                        3. Outputs result EXACTLY matching outputFormat
+                        4. Is syntactically correct and runs
+                        5. Uses standard competitive programming patterns
 
-                        SKELETON CODE REQUIREMENTS:
-                        - Must be syntactically correct and executable
-                        - Must match the EXACT input format (number of inputs, data types, order)
-                        - Must match the EXACT output format (formatting, delimiters)
-                        - Must have TODO comment showing where to implement the algorithm
-                        - Must NOT implement the actual solution (leave logic as placeholder)
-                        - Use standard competitive programming patterns (Scanner for Java, cin for C++, etc.)
-                        - CRITICAL: In JSON strings, ALL backslashes must be escaped as \\\\ (e.g., \\\\n for newline, \\\\\\\\ for single backslash)
-                        - CRITICAL: Do NOT use regex patterns or escape sequences that aren't valid in JSON (only valid: \\\", \\\\, \\/, \\b, \\f, \\n, \\r, \\t)
+                        CRITICAL: In JSON, escape backslashes as \\\\\\\\ (e.g., \\\\\\\\n for newline)
 
-                        Return ONLY valid JSON (no markdown code fences):
+                        === OUTPUT FORMAT ===
+
+                        Return ONLY valid JSON (no markdown code fences, no explanatory text):
                         {
                           "title": "%s",
-                          "description": "Full problem statement with HTML formatting",
-                          "inputFormat": "Precise input specification",
-                          "outputFormat": "Precise output specification",
-                          "constraints": ["constraint1", "constraint2"],
+                          "description": "Full problem statement (HTML allowed)",
+                          "inputFormat": "Line-by-line specification with types",
+                          "outputFormat": "Exact output specification",
+                          "constraints": ["1 ≤ n ≤ 1000", "1 ≤ arr[i] ≤ 10^9", "time: O(n log n)"],
                           "sampleTests": [
                             {
-                              "input": "exact input",
-                              "output": "exact output",
-                              "explanation": "Step-by-step walkthrough"
+                              "input": "exact input string",
+                              "output": "exact output string",
+                              "explanation": "VERY detailed step-by-step walkthrough (minimum 5 sentences showing algorithm steps)"
                             }
                           ],
                           "hiddenTests": [
-                            {"input": "test input", "output": "correct output"}
+                            {"input": "test input", "output": "manually calculated output"}
                           ],
                           "difficulty": %d,
                           "tags": ["%s"],
                           "skeletonCode": {
-                            "python": "# Python starter code\\nn = int(input())\\n\\n# TODO: Implement your algorithm here\\nresult = 0\\n\\nprint(result)",
-                            "java": "import java.util.*;\\n\\npublic class Solution {\\n    public static void main(String[] args) {\\n        Scanner sc = new Scanner(System.in);\\n        int n = sc.nextInt();\\n        \\n        // TODO: Implement your algorithm here\\n        int result = 0;\\n        \\n        System.out.println(result);\\n    }\\n}",
-                            "cpp": "#include <iostream>\\nusing namespace std;\\n\\nint main() {\\n    int n;\\n    cin >> n;\\n    \\n    // TODO: Implement your algorithm here\\n    int result = 0;\\n    \\n    cout << result << endl;\\n    return 0;\\n}",
-                            "javascript": "const readline = require('readline');\\nconst rl = readline.createInterface({\\n    input: process.stdin,\\n    output: process.stdout\\n});\\n\\nrl.on('line', (line) => {\\n    const n = parseInt(line);\\n    \\n    // TODO: Implement your algorithm here\\n    const result = 0;\\n    \\n    console.log(result);\\n    rl.close();\\n});"
+                            "python": "# Starter code with correct I/O\\\\n",
+                            "java": "import java.util.*;\\\\n\\\\npublic class Solution { ... }",
+                            "cpp": "#include <iostream>\\\\nusing namespace std;\\\\n\\\\nint main() { ... }",
+                            "javascript": "const readline = require('readline');\\\\n..."
                           }
                         }
                         """,
@@ -621,15 +685,13 @@ public class ProblemGenerationService {
                 categoryName,
                 filter.difficulty().getDisplayName(),
                 targetRating,
-                filter.hasSubtype() ? String.format("Specific Topic: %s", filter.subtype()) : "",
+                filter.hasSubtype() ? String.format("Specific Technique: %s", filter.subtype()) : "",
+                selectedTitle.getConcept(),
                 categoryName,
                 selectedTitle.getConcept(),
                 subtypeEmphasis,
-                categoryName.toLowerCase(),
-                targetRating,
+                categoryName, // For verification
                 subtypeRequirement,
-                categoryName, // For verification checklist: "Problem requires %s"
-                categoryName, // For verification checklist: "Problem is not just 'implement %s'"
                 selectedTitle.getTitle(),
                 targetRating,
                 categoryName.toLowerCase());
