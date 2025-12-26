@@ -63,7 +63,6 @@ function CodeEditor({ onSubmit, problemId, disabled, skeletonCode }) {
                         <option value="python">Python</option>
                         <option value="java">Java</option>
                         <option value="cpp">C++</option>
-                        <option value="c">C</option>
                         <option value="javascript">JavaScript</option>
                     </select>
 
@@ -158,19 +157,6 @@ int main() {
     int result = n;
     
     cout << result << endl;
-    return 0;
-}`,
-
-        c: `#include <stdio.h>
-
-int main() {
-    int n;
-    scanf("%d", &n);
-    
-    // Your solution here
-    int result = n;
-    
-    printf("%d\\n", result);
     return 0;
 }`,
 
