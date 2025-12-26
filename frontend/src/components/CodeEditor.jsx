@@ -11,8 +11,8 @@ function CodeEditor({ onSubmit, problemId, disabled, skeletonCode }) {
     // Initialize code when problem loads or language changes
     useEffect(() => {
         if (!hasUserCode && skeletonCode && skeletonCode[language]) {
-            // Use skeleton code from the problem
-            setCode(skeletonCode[language]);
+            // Use skeleton code from the problem, unescaping newlines
+            setCode(unescapeNewlines(skeletonCode[language]));
         } else if (!hasUserCode) {
             // Fall back to generic starter code if no skeleton provided
             setCode(getStarterCode(language));
@@ -102,6 +102,13 @@ function CodeEditor({ onSubmit, problemId, disabled, skeletonCode }) {
         </div>
     );
 }
+
+// Utility function to handle escaped newlines from backend
+const unescapeNewlines = (str) => {
+    if (!str) return '';
+    // Replace literal \n with actual newlines, and \t with tabs
+    return str.replace(/\\n/g, '\n').replace(/\\t/g, '\t');
+};
 
 // Helper functions
 function getMonacoLanguage(lang) {

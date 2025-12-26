@@ -406,7 +406,12 @@ function GameRoom() {
             <h3>Problem Description</h3>
             <div
               className="problem-content"
-              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(gameState.problem.description) }}
+              style={{ whiteSpace: 'pre-wrap' }}
+              dangerouslySetInnerHTML={{
+                __html: DOMPurify.sanitize(
+                  gameState.problem.description.replace(/\\n/g, '\n')
+                )
+              }}
             />
           </div>
         ) : (
