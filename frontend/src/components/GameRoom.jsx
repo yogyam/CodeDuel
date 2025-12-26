@@ -171,10 +171,6 @@ function GameRoom() {
     setGenerationStatus('Generating full problem...');
 
     try {
-      // Create AbortController for timeout
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-
       const response = await fetch('/api/game/generate-problem-from-title', {
         method: 'POST',
         headers: {
@@ -184,11 +180,8 @@ function GameRoom() {
         body: JSON.stringify({
           filter: gameFilters,
           selectedTitle: title
-        }),
-        signal: controller.signal
+        })
       });
-
-      clearTimeout(timeoutId);
 
       if (!response.ok) {
         throw new Error('Failed to generate problem');
