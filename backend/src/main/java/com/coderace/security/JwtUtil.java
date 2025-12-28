@@ -28,6 +28,27 @@ public class JwtUtil {
     @Value("${jwt.expiration}")
     private long expiration;
 
+    @Value("${jwt.cookie.name}")
+    private String cookieName;
+
+    @Value("${jwt.cookie.http-only}")
+    private boolean httpOnly;
+
+    @Value("${jwt.cookie.secure}")
+    private boolean secure;
+
+    @Value("${jwt.cookie.same-site}")
+    private String sameSite;
+
+    @Value("${jwt.cookie.max-age}")
+    private int maxAge;
+
+    @Value("${jwt.refresh-cookie.name}")
+    private String refreshCookieName;
+
+    @Value("${jwt.refresh-cookie.max-age}")
+    private int refreshCookieMaxAge;
+
     /**
      * Validates JWT secret on application startup
      * Ensures the secret is at least 256 bits (32 bytes) for HS256 algorithm
@@ -146,5 +167,88 @@ public class JwtUtil {
         } catch (Exception e) {
             return true;
         }
+    }
+
+    /**
+     * Generate JWT token as an httpOnly cookie for XSS protection
+     * 
+     * @param userId   User's database ID
+     * @param email    User's email
+     * @param username User's username
+     * @return Cookie object with JWT and security flags set
+     */
+    public jakarta.servlet.http.Cookie generateTokenCookie(Long userId, String email, String username) {
+        String token = generateToken(userId, email, username);
+
+        jakarta.servlet.http.Cookie cookie = new jakarta.servlet.http.Cookie(cookieName, token);
+        cookie.setHttpOnly(httpOnly);
+        cookie.setSecure(secure);
+        cookie.setPath("/");
+        cookie.setMaxAge(maxAge);
+
+        // SameSite attribute (not directly supported in Cookie class, must be set in
+        // response)
+        // Note: Will be added via response header in controller
+
+        log.debug("Generated JWT cookie for user: {}", email);
+        return cookie;
+    }
+
+    /**
+     * Create a cookie to clear the authentication token (for logout)
+     * 
+     * @return Cookie with expired maxAge to clear client-side cookie
+     */
+    public jakarta.servlet.http.Cookie clearTokenCookie() {
+        jakarta.servlet.http.Cookie cookie = new jakarta.servlet.http.Cookie(cookieName, null);
+        cookie.setHttpOnly(httpOnly);
+        cookie.setSecure(secure);
+        cookie.setPath("/");
+        cookie.setMaxAge(0); // Expire immediately
+
+        log.debug("Generated cookie to clear JWT token");
+        return cookie;
+    }
+
+    /**
+     * Get the cookie name configured for JWT
+     * 
+     * @return Cookie name
+     */
+    public String getCookieName() {
+        return cookieName;
+    }
+
+    /**
+     * Generate a refresh token cookie
+     * 
+     * @param refreshToken The refresh token value
+     * @return Cookie configured for refresh token
+     */
+    public jakarta.servlet.http.Cookie generateRefreshTokenCookie(String refreshToken) {
+        jakarta.servlet.http.Cookie cookie = new jakarta.servlet.http.Cookie(refreshCookieName, refreshToken);
+        cookie.setHttpOnly(true);
+        cookie.setSecure(secure);
+        cookie.setPath("/");
+        cookie.setMaxAge(refreshCookieMaxAge);
+
+        log.debug("Generated refresh token cookie");
+        return cookie;
+    }
+
+    /**
+     * Clear refresh token cookie (for logout)
+     * 
+     * @return Cookie with expired maxAge
+     */
+    public jakarta.servlet.http.Cookie clearRefreshTokenCookie() {
+        jakarta.servlet.http.Cookie cookie = new jakarta.servlet.http.Cookie(refreshCookieName, null);
+        cookie.setHttpOnly(true);
+        cookie.setSecure(secure);
+        cookie.setPath("/");
+        cookie.setMaxAge(0);
+
+        log.debug("Cleared refresh token cookie");
+        return cookie;
     }
 }

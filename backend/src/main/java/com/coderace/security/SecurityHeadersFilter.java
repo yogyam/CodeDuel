@@ -17,46 +17,47 @@ import java.io.IOException;
 @Component
 public class SecurityHeadersFilter implements Filter {
 
-    @Override
-    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
-            throws IOException, ServletException {
+        @Override
+        public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
+                        throws IOException, ServletException {
 
-        HttpServletResponse httpResponse = (HttpServletResponse) response;
+                HttpServletResponse httpResponse = (HttpServletResponse) response;
 
-        // Prevent MIME type sniffing
-        httpResponse.setHeader("X-Content-Type-Options", "nosniff");
+                // Prevent MIME type sniffing
+                httpResponse.setHeader("X-Content-Type-Options", "nosniff");
 
-        // Prevent clickjacking attacks
-        httpResponse.setHeader("X-Frame-Options", "DENY");
+                // Prevent clickjacking attacks
+                httpResponse.setHeader("X-Frame-Options", "DENY");
 
-        // Enable XSS protection in older browsers
-        httpResponse.setHeader("X-XSS-Protection", "1; mode=block");
+                // Enable XSS protection in older browsers
+                httpResponse.setHeader("X-XSS-Protection", "1; mode=block");
 
-        // Enforce HTTPS in production (will be enabled via environment variable)
-        // Only add if we're in a secure context
-        String protocol = request.getScheme();
-        if ("https".equals(protocol)) {
-            httpResponse.setHeader("Strict-Transport-Security",
-                    "max-age=31536000; includeSubDomains; preload");
+                // Enforce HTTPS in production (will be enabled via environment variable)
+                // Only add if we're in a secure context
+                String protocol = request.getScheme();
+                if ("https".equals(protocol)) {
+                        httpResponse.setHeader("Strict-Transport-Security",
+                                        "max-age=31536000; includeSubDomains; preload");
+                }
+
+                // Content Security Policy - Strict XSS protection
+                // Removed unsafe-inline and unsafe-eval from script-src
+                httpResponse.setHeader("Content-Security-Policy",
+                                "default-src 'self'; " +
+                                                "script-src 'self'; " +
+                                                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+                                                "font-src 'self' https://fonts.gstatic.com; " +
+                                                "img-src 'self' data: https:; " +
+                                                "connect-src 'self' ws: wss:; " + // WebSocket support
+                                                "frame-ancestors 'none'");
+
+                // Referrer policy - control information sent in Referer header
+                httpResponse.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+
+                // Permissions policy - disable unused browser features
+                httpResponse.setHeader("Permissions-Policy",
+                                "geolocation=(), microphone=(), camera=()");
+
+                chain.doFilter(request, response);
         }
-
-        // Content Security Policy - restrict resource loading
-        // Allow same origin and our frontend domain
-        httpResponse.setHeader("Content-Security-Policy",
-                "default-src 'self'; " +
-                        "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
-                        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
-                        "font-src 'self' https://fonts.gstatic.com; " +
-                        "img-src 'self' data: https:; " +
-                        "connect-src 'self' https://codeforces.com;");
-
-        // Referrer policy - control information sent in Referer header
-        httpResponse.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-
-        // Permissions policy - disable unused browser features
-        httpResponse.setHeader("Permissions-Policy",
-                "geolocation=(), microphone=(), camera=()");
-
-        chain.doFilter(request, response);
-    }
 }

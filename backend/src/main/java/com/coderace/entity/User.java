@@ -39,11 +39,6 @@ public class User {
     @Column(unique = true)
     private String googleId;
 
-    /**
-     * Optional Codeforces handle for user profile
-     */
-    private String codeforcesHandle;
-
     @CreationTimestamp
     @Column(updatable = false)
     private LocalDateTime createdAt;

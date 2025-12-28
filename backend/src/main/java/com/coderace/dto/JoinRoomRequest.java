@@ -5,12 +5,12 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * DTO for joining an existing game room
+ * Request to join an existing game room
  */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class JoinRoomRequest {
     private String roomId;
-    private String codeforcesHandle;
+    private String handle; // User handle
 }

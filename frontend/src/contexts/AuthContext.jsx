@@ -7,63 +7,31 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
 /**
  * Authentication context provider
- * Manages user authentication state and JWT tokens
+ * Manages user authentication state using httpOnly cookies
+ * JWT tokens are stored in cookies by the backend (not accessible to JavaScript)
  */
 export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [token, setToken] = useState(localStorage.getItem('auth_token'));
 
-    // Load user on mount if token exists
+    // Load user on mount - check if authenticated via cookie
     useEffect(() => {
         const initAuth = async () => {
             try {
-                // Check for OAuth callback token in URL
-                const params = new URLSearchParams(window.location.search);
-                const urlToken = params.get('token');
+                // Call /me endpoint - cookie will be sent automatically
+                const response = await fetch(`${API_URL}/api/auth/me`, {
+                    credentials: 'include' // Send cookies with request
+                });
 
-                if (urlToken) {
-                    // Token from OAuth callback
-                    localStorage.setItem('auth_token', urlToken);
-                    setToken(urlToken);
-                    // Validate new token
-                    const response = await fetch(`${API_URL}/api/auth/me`, {
-                        headers: { 'Authorization': `Bearer ${urlToken}` }
-                    });
-                    if (response.ok) {
-                        const userData = await response.json();
-                        setUser(userData);
-                        setLoading(false);
-                        // Use setTimeout to ensure state is set before redirect
-                        setTimeout(() => {
-                            window.location.href = '/dashboard';
-                        }, 100);
-                        return; // Don't set loading to false again
-                    } else {
-                        localStorage.removeItem('auth_token');
-                        setToken(null);
-                    }
+                if (response.ok) {
+                    const userData = await response.json();
+                    setUser(userData);
                 } else {
-                    // Check for existing token in localStorage
-                    const storedToken = localStorage.getItem('auth_token');
-                    if (storedToken) {
-                        // Validate existing token
-                        const response = await fetch(`${API_URL}/api/auth/me`, {
-                            headers: { 'Authorization': `Bearer ${storedToken}` }
-                        });
-                        if (response.ok) {
-                            const userData = await response.json();
-                            setUser(userData);
-                        } else {
-                            localStorage.removeItem('auth_token');
-                            setToken(null);
-                        }
-                    }
+                    // Not authenticated or cookie expired
+                    setUser(null);
                 }
             } catch (error) {
                 console.error('Auth initialization error:', error);
-                localStorage.removeItem('auth_token');
-                setToken(null);
                 setUser(null);
             } finally {
                 setLoading(false);
@@ -75,31 +43,31 @@ export function AuthProvider({ children }) {
     }, []); // Only run once on mount
 
     /**
-     * Login with JWT token
+     * Logout - call backend to clear cookie
      */
-    const login = (jwtToken, userData) => {
-        localStorage.setItem('auth_token', jwtToken);
-        setToken(jwtToken);
-        setUser(userData);
-    };
-
-    /**
-     * Logout - clear token and user
-     */
-    const logout = () => {
-        localStorage.removeItem('auth_token');
-        setToken(null);
-        setUser(null);
+    const logout = async () => {
+        try {
+            await fetch(`${API_URL}/api/auth/logout`, {
+                method: 'POST',
+                credentials: 'include'
+            });
+        } catch (error) {
+            console.error('Logout error:', error);
+        } finally {
+            setUser(null);
+        }
     };
 
     /**
      * Register with email and password
+     * Backend sets httpOnly cookie automatically
      */
-    const registerWithEmail = async (email, password, codeforcesHandle) => {
+    const registerWithEmail = async (email, password) => {
         const response = await fetch(`${API_URL}/api/auth/register`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password, codeforcesHandle })
+            credentials: 'include', // Allow cookies to be set
+            body: JSON.stringify({ email, password })
         });
 
         if (!response.ok) {
@@ -108,18 +76,20 @@ export function AuthProvider({ children }) {
         }
 
         const data = await response.json();
-        login(data.token, data.user);
+        setUser(data.user);
         window.location.href = '/dashboard';
         return data;
     };
 
     /**
      * Login with email and password
+     * Backend sets httpOnly cookie automatically
      */
     const loginWithEmail = async (email, password) => {
         const response = await fetch(`${API_URL}/api/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include', // Allow cookies to be set
             body: JSON.stringify({ email, password })
         });
 
@@ -129,7 +99,7 @@ export function AuthProvider({ children }) {
         }
 
         const data = await response.json();
-        login(data.token, data.user);
+        setUser(data.user);
         window.location.href = '/dashboard';
         return data;
     };
@@ -143,10 +113,8 @@ export function AuthProvider({ children }) {
 
     const value = {
         user,
-        token,
         loading,
         isAuthenticated: !!user,
-        login,
         logout,
         loginWithGoogle,
         registerWithEmail,

@@ -15,8 +15,8 @@ import './GameRoom.css';
 function GameRoom() {
   const { roomId } = useParams(); // Get roomId from URL
   const navigate = useNavigate();
-  const { user, token } = useAuth(); // Get JWT token from auth context
-  const codeforcesHandle = user?.codeforcesHandle || 'anonymous';
+  const { user } = useAuth(); // Removed token - authentication via cookies
+  const handle = user?.username || 'anonymous';
   const [gameState, setGameState] = useState({
     state: 'WAITING',
     users: [],
@@ -83,9 +83,9 @@ function GameRoom() {
       // Join the room
       webSocketService.send(`/app/game/${roomId}/join`, {
         roomId: roomId,
-        codeforcesHandle: codeforcesHandle
+        handle: handle
       });
-    }, token); // Pass token for WebSocket authentication
+    }); // Removed token - authentication via cookies
 
     // Cleanup on unmount
     return () => {
@@ -95,7 +95,7 @@ function GameRoom() {
       }
       webSocketService.disconnect();
     };
-  }, [roomId, codeforcesHandle, token]);
+  }, [roomId, handle]); // Removed token dependency
 
   /**
    * Step 1: Generate title options (host only)
@@ -122,8 +122,8 @@ function GameRoom() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
         },
+        credentials: 'include', // Send cookies for authentication
         body: JSON.stringify(gameFilters),
         signal: controller.signal
       });
@@ -175,8 +175,8 @@ function GameRoom() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
         },
+        credentials: 'include', // Send cookies for authentication
         body: JSON.stringify({
           filter: gameFilters,
           selectedTitle: title
@@ -317,10 +317,10 @@ function GameRoom() {
             >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-coderace-blue rounded-full flex items-center justify-center text-white font-bold">
-                  {user.codeforcesHandle[0].toUpperCase()}
+                  {user.username[0].toUpperCase()}
                 </div>
                 <div>
-                  <div className="font-semibold">{user.codeforcesHandle}</div>
+                  <div className="font-semibold">{user.username}</div>
                   {user.host && (
                     <span className="text-xs text-coderace-blue">Host</span>
                   )}
@@ -419,12 +419,12 @@ function GameRoom() {
             <p className="problem-unavailable">
               ⚠️ Problem description temporarily unavailable.
               <a
-                href={`https://codeforces.com/problemset/problem/${gameState.problem?.contestId}/${gameState.problem?.index}`}
+                href={`https://programming.com/problemset/problem/${gameState.problem?.contestId}/${gameState.problem?.index}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{ marginLeft: '8px' }}
               >
-                View on Codeforces →
+                View on Programming →
               </a>
             </p>
           </div>
@@ -460,9 +460,9 @@ function GameRoom() {
               <div className="flex items-center gap-3">
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${user.status === 'WON' ? 'bg-green-500' : 'bg-coderace-blue'
                   }`}>
-                  {user.status === 'WON' ? '★' : user.codeforcesHandle[0].toUpperCase()}
+                  {user.status === 'WON' ? '★' : user.username[0].toUpperCase()}
                 </div>
-                <div className="font-semibold">{user.codeforcesHandle}</div>
+                <div className="font-semibold">{user.username}</div>
               </div>
               <span className={getUserStatusBadge(user.status)}>
                 {user.status === 'SOLVING' ? 'Solving...' : user.status}
@@ -495,7 +495,7 @@ function GameRoom() {
         <div className="card bg-gradient-to-r from-green-500 to-green-600 text-white text-center py-12">
           <div className="text-6xl mb-4">★</div>
           <h2 className="text-3xl font-bold mb-2">Winner!</h2>
-          <p className="text-2xl font-semibold">{winner?.codeforcesHandle}</p>
+          <p className="text-2xl font-semibold">{winner?.handle}</p>
         </div>
 
         {/* Problem Info */}
@@ -523,7 +523,7 @@ function GameRoom() {
               >
                 <div className="flex items-center gap-3">
                   <span className="text-xl">{user.status === 'WON' ? '★' : '—'}</span>
-                  <div className="font-semibold">{user.codeforcesHandle}</div>
+                  <div className="font-semibold">{user.username}</div>
                 </div>
                 <span className={getUserStatusBadge(user.status)}>
                   {user.status}

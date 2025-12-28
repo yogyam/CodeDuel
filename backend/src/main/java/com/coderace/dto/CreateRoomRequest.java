@@ -5,11 +5,11 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * DTO for creating a new game room
+ * Request to create a new game room
  */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateRoomRequest {
-    private String codeforcesHandle;
+    private String handle; // User handle
 }

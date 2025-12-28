@@ -2,24 +2,11 @@ import axios from 'axios';
 
 const API_BASE_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api`;
 
-// Create axios instance with default config
+// Create axios instance with cookie-based authentication
 const axiosInstance = axios.create({
   baseURL: API_BASE_URL,
+  withCredentials: true, // Send cookies with every request
 });
-
-// Add request interceptor to include JWT token
-axiosInstance.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('auth_token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
 
 /**
  * Service for making HTTP requests to the backend
@@ -27,12 +14,12 @@ axiosInstance.interceptors.request.use(
 const apiService = {
   /**
    * Creates a new game room
-   * @param {String} codeforcesHandle The Codeforces handle of the host
+   * @param {String} handle The Codeforces handle of the host
    * @returns {Promise} Response with roomId
    */
-  createRoom: async (codeforcesHandle) => {
+  createRoom: async (handle) => {
     const response = await axiosInstance.post('/game/create-room', {
-      codeforcesHandle
+      handle
     });
     return response.data;
   },

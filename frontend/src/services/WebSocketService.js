@@ -14,14 +14,14 @@ class WebSocketService {
 
   /**
    * Connects to the WebSocket server
+   * Authentication is handled via httpOnly cookies sent automatically
    * @param {Function} onConnected Callback when connection is established
-   * @param {string} token JWT token for authentication (optional)
    */
-  connect(onConnected, token = null) {
+  connect(onConnected) {
     // Use environment variable or default to localhost
     const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
-    // Create SockJS instance
+    // Create SockJS instance - cookies will be sent automatically
     const socket = new SockJS(`${backendUrl}/ws`);
 
     // Create STOMP client
@@ -33,10 +33,7 @@ class WebSocketService {
       reconnectDelay: 5000,
       heartbeatIncoming: 4000,
       heartbeatOutgoing: 4000,
-      // Add JWT token to connection headers if provided
-      connectHeaders: token ? {
-        'Authorization': `Bearer ${token}`
-      } : {}
+      // Authentication via cookies - no need for Authorization header
     });
 
     // Called when connection is established

@@ -1,9 +1,10 @@
 package com.coderace.security;
 
 import com.coderace.entity.User;
-import com.coderace.repository.UserRepository;
+import com.coderace.service.UserCacheService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -26,11 +27,11 @@ import java.util.Collections;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
-    private final UserRepository userRepository;
+    private final UserCacheService userCacheService;
 
-    public JwtAuthenticationFilter(JwtUtil jwtUtil, UserRepository userRepository) {
+    public JwtAuthenticationFilter(JwtUtil jwtUtil, UserCacheService userCacheService) {
         this.jwtUtil = jwtUtil;
-        this.userRepository = userRepository;
+        this.userCacheService = userCacheService;
     }
 
     @Override
@@ -47,9 +48,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 Long userId = jwtUtil.getUserIdFromToken(jwt);
                 String email = jwtUtil.getEmailFromToken(jwt);
 
-                // Load user from database
-                User user = userRepository.findById(userId)
-                        .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+                // Load user from cache (fallback to database if cache miss)
+                User user = userCacheService.getUserById(userId);
+
+                if (user == null) {
+                    log.warn("User {} not found for valid JWT", userId);
+                    filterChain.doFilter(request, response);
+                    return;
+                }
 
                 // Create Spring Security authentication
                 UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
@@ -71,13 +77,29 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     /**
-     * Extract JWT token from Authorization header
+     * Extract JWT token from cookies or Authorization header
+     * Priority: cookies first (new flow), then Authorization header (backward
+     * compatibility)
      */
     private String extractJwtFromRequest(HttpServletRequest request) {
+        // PRIORITY 1: Check cookies for JWT (httpOnly cookie from new auth flow)
+        Cookie[] cookies = request.getCookies();
+        if (cookies != null) {
+            for (Cookie cookie : cookies) {
+                if (jwtUtil.getCookieName().equals(cookie.getName())) {
+                    log.debug("Found JWT in cookie");
+                    return cookie.getValue();
+                }
+            }
+        }
+
+        // PRIORITY 2: Fallback to Authorization header (backward compatibility)
         String bearerToken = request.getHeader("Authorization");
         if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
+            log.debug("Found JWT in Authorization header");
             return bearerToken.substring(7);
         }
+
         return null;
     }
 }

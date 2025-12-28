@@ -44,7 +44,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
         // Apply rate limiting to authentication and expensive API endpoints
         if (path.startsWith("/api/auth/login") ||
                 path.startsWith("/api/auth/register") ||
-                path.startsWith("/api/auth/codeforces-handle") ||
+                path.startsWith("/api/auth/user-handle") ||
                 path.startsWith("/api/game/generate-titles") ||
                 path.startsWith("/api/game/generate-problem-from-title") ||
                 path.startsWith("/api/game/create-room")) {

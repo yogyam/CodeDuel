@@ -24,7 +24,7 @@ import org.springframework.stereotype.Controller;
  * state to all
  * 2. Host sends START message -> Server fetches problem -> Broadcast game
  * started to all
- * 3. Server polls Codeforces -> Detects winner -> Broadcast winner to all
+ * 3. Server detects winner -> Broadcast winner to all
  * 4. Client disconnects -> Server removes user -> Broadcast updated room state
  */
 @Controller
@@ -41,7 +41,7 @@ public class WebSocketController {
          * Broadcast destination: /topic/room/{roomId}
          * 
          * @param roomId         The ID of the room to join
-         * @param request        Contains the Codeforces handle
+         * @param request        Contains the user handle
          * @param headerAccessor Used to get the WebSocket session ID
          */
         @MessageMapping("/game/{roomId}/join")
@@ -52,10 +52,10 @@ public class WebSocketController {
                 String sessionId = headerAccessor.getSessionId();
                 String username = (String) headerAccessor.getSessionAttributes().get("username");
                 log.info("User {} (username: {}) joining room {} with session {}",
-                                request.getCodeforcesHandle(), username, roomId, sessionId);
+                                request.getHandle(), username, roomId, sessionId);
 
                 // Add user to room
-                User user = gameService.addUserToRoom(roomId, request.getCodeforcesHandle(), sessionId, username);
+                User user = gameService.addUserToRoom(roomId, request.getHandle(), sessionId, username);
 
                 if (user == null) {
                         log.error("Failed to add user to room {}", roomId);
@@ -69,7 +69,7 @@ public class WebSocketController {
                 GameRoom room = gameService.getRoom(roomId);
                 GameStateUpdate update = new GameStateUpdate(
                                 room,
-                                user.getCodeforcesHandle() + " joined the room");
+                                user.getHandle() + " joined the room");
 
                 messagingTemplate.convertAndSend("/topic/room/" + roomId, update);
                 log.info("Broadcasted join event to room {}", roomId);

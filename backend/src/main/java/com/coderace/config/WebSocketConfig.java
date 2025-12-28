@@ -1,6 +1,8 @@
 package com.coderace.config;
 
 import com.coderace.security.WebSocketAuthInterceptor;
+import com.coderace.security.WebSocketHandshakeInterceptor;
+import com.coderace.security.WebSocketCsrfInterceptor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.ChannelRegistration;
@@ -28,9 +30,16 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     private String allowedOrigins;
 
     private final WebSocketAuthInterceptor webSocketAuthInterceptor;
+    private final WebSocketHandshakeInterceptor webSocketHandshakeInterceptor;
+    private final WebSocketCsrfInterceptor webSocketCsrfInterceptor;
 
-    public WebSocketConfig(WebSocketAuthInterceptor webSocketAuthInterceptor) {
+    public WebSocketConfig(
+            WebSocketAuthInterceptor webSocketAuthInterceptor,
+            WebSocketHandshakeInterceptor webSocketHandshakeInterceptor,
+            WebSocketCsrfInterceptor webSocketCsrfInterceptor) {
         this.webSocketAuthInterceptor = webSocketAuthInterceptor;
+        this.webSocketHandshakeInterceptor = webSocketHandshakeInterceptor;
+        this.webSocketCsrfInterceptor = webSocketCsrfInterceptor;
     }
 
     @Override
@@ -45,7 +54,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void configureClientInboundChannel(ChannelRegistration registration) {
-        // Add JWT authentication interceptor
+        // Add JWT authentication interceptor for STOMP messages
         registration.interceptors(webSocketAuthInterceptor);
     }
 
@@ -53,8 +62,10 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         // Register the /ws endpoint for WebSocket connections
         // SockJS fallback is enabled for browsers that don't support WebSocket
+        // Add CSRF protection and cookie extraction interceptors
         registry.addEndpoint("/ws")
                 .setAllowedOrigins(allowedOrigins.split(","))
+                .addInterceptors(webSocketCsrfInterceptor, webSocketHandshakeInterceptor)
                 .withSockJS();
     }
 }

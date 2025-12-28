@@ -11,14 +11,14 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class User {
-    private String codeforcesHandle;
+    private String handle; // User handle/identifier
     private String sessionId;
     private boolean isHost;
     private String username; // Authenticated username from JWT
     private UserStatus status;
 
-    public User(String codeforcesHandle, String sessionId, boolean isHost, String username) {
-        this.codeforcesHandle = codeforcesHandle;
+    public User(String handle, String sessionId, boolean isHost, String username) {
+        this.handle = handle;
         this.sessionId = sessionId;
         this.isHost = isHost;
         this.username = username;

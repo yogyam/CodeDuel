@@ -24,7 +24,6 @@ import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 import com.coderace.constants.GameConstants;
 
 /**
@@ -54,15 +53,18 @@ public class ProblemGenerationService {
     private final TestCaseRepository testCaseRepository;
     private final SimpMessagingTemplate messagingTemplate;
     private final ProblemValidationService validationService;
+    private final HtmlSanitizationService htmlSanitizationService;
 
     public ProblemGenerationService(RestTemplate restTemplate, ObjectMapper objectMapper,
             TestCaseRepository testCaseRepository, SimpMessagingTemplate messagingTemplate,
-            ProblemValidationService validationService) {
+            ProblemValidationService validationService,
+            HtmlSanitizationService htmlSanitizationService) {
         this.restTemplate = restTemplate;
         this.objectMapper = objectMapper;
         this.testCaseRepository = testCaseRepository;
         this.messagingTemplate = messagingTemplate;
         this.validationService = validationService;
+        this.htmlSanitizationService = htmlSanitizationService;
     }
 
     /**
@@ -818,7 +820,9 @@ public class ProblemGenerationService {
 
         // Build full description with input/output format
         String fullDescription = buildDescription(response);
-        problem.setDescription(fullDescription);
+        // Sanitize HTML content from LLM to prevent XSS
+        String sanitizedDescription = htmlSanitizationService.sanitizeProblemDescription(fullDescription);
+        problem.setDescription(sanitizedDescription);
 
         // LLM metadata
         problem.setSource("GENERATED");
@@ -879,7 +883,9 @@ public class ProblemGenerationService {
         StringBuilder html = new StringBuilder();
 
         html.append("<div class='problem-description'>");
-        html.append(response.getDescription());
+        // Sanitize the main description content
+        String sanitizedDesc = htmlSanitizationService.sanitizeProblemDescription(response.getDescription());
+        html.append(sanitizedDesc);
         html.append("</div>");
 
         // Only add input/output format sections if they're provided and not null

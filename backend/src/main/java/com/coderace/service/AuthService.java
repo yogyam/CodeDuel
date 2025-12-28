@@ -29,13 +29,12 @@ public class AuthService {
     /**
      * Register new user with email and password
      * 
-     * @param email            User email
-     * @param password         Plain text password
-     * @param codeforcesHandle Optional Codeforces handle
+     * @param email    User email
+     * @param password Plain text password
      * @return JWT token
      */
     @Transactional
-    public String registerWithEmail(String email, String password, String codeforcesHandle) {
+    public String registerWithEmail(String email, String password) {
         log.info("Email registration attempt for: {}", email);
 
         // Check if email already exists
@@ -54,7 +53,6 @@ public class AuthService {
         user.setEmail(email.toLowerCase());
         user.setUsername(generateUsernameFromEmail(email));
         user.setPasswordHash(hashedPassword);
-        user.setCodeforcesHandle(codeforcesHandle);
         user = userRepository.save(user);
 
         log.info("Created new user via email registration: {}", email);
@@ -193,16 +191,5 @@ public class AuthService {
         }
 
         return username;
-    }
-
-    /**
-     * Update user's Codeforces handle
-     */
-    @Transactional
-    public void updateCodeforcesHandle(Long userId, String codeforcesHandle) {
-        User user = getUserById(userId);
-        user.setCodeforcesHandle(codeforcesHandle);
-        userRepository.save(user);
-        log.info("Updated Codeforces handle for user {}: {}", userId, codeforcesHandle);
     }
 }

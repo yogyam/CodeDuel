@@ -87,7 +87,7 @@ public class GameService {
     /**
      * Creates a new game room with a unique ID
      * 
-     * @param hostHandle   Codeforces handle of the host
+     * @param hostHandle   Handle of the host
      * @param hostUsername Authenticated username of the host
      * @return The unique room ID
      */
@@ -106,7 +106,7 @@ public class GameService {
      * Adds a user to an existing room
      * 
      * @param roomId    The room to join
-     * @param handle    Codeforces handle
+     * @param handle    User handle
      * @param sessionId WebSocket session ID
      * @param username  Authenticated username from JWT
      * @return The created User object, or null if room doesn't exist
@@ -119,7 +119,7 @@ public class GameService {
             return null;
         }
 
-        // If username is null, use codeforcesHandle as fallback identifier
+        // Use username as identifier
         String userIdentifier = (username != null) ? username : handle;
 
         // Check if this username matches the original host
@@ -140,7 +140,6 @@ public class GameService {
 
             // Update the sessionId but preserve status and other properties
             existingUser.setSessionId(sessionId);
-            existingUser.setCodeforcesHandle(handle); // Update handle in case it changed
             user = existingUser;
 
             log.info("User {} reconnected to room {} (preserved status: {}, username: {})",
@@ -297,22 +296,8 @@ public class GameService {
 
     /**
      * DEPRECATED: Disabled in favor of in-browser IDE system
-     * Old polling system that checked Codeforces API for solutions
-     * 
-     * Periodically checks for game winners by polling Codeforces API
-     * Runs every 5 seconds (configurable via application.properties)
-     * 
-     * For each active game:
-     * 1. Get all users in the room
-     * 2. Check each user's recent submissions via Codeforces API
-     * 3. If a user has solved the problem after game start time, declare them
-     * winner
-     * 4. Broadcast winner announcement to all users in the room
+     * Old polling system that checked external API for solutions
      */
-    // @Scheduled(fixedDelayString = "${codeforces.polling.interval:5000}")
-    // public void checkForWinners() {
-    // // Disabled - using in-browser IDE with Piston API instead
-    // }
 
     // /**
     // * Checks a specific room for winners
@@ -372,7 +357,7 @@ public class GameService {
         }
 
         log.info("Executing code for user {} in room {}. Testing against {} test cases",
-                user.getCodeforcesHandle(), roomId, testCases.size());
+                user.getUsername(), roomId, testCases.size());
 
         // Execute code against test cases
         com.coderace.dto.SubmissionVerdict verdict = codeExecutionService.verifySubmission(code, language, testCases);
@@ -393,7 +378,7 @@ public class GameService {
                     room.setWinnerId(sessionId);
                     room.setState(GameRoom.GameState.FINISHED);
 
-                    log.info("User {} won in room {}!", user.getCodeforcesHandle(), roomId);
+                    log.info("User {} won in room {}!", user.getUsername(), roomId);
                 }
             }
         }

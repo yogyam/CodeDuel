@@ -34,7 +34,7 @@ public class GameController {
      * Creates a new game room
      * The creator becomes the host of the room
      * 
-     * @param request Contains the Codeforces handle of the host
+     * @param request Contains the handle of the host
      * @return Room ID of the created room
      */
     @PostMapping("/create-room")
@@ -52,9 +52,9 @@ public class GameController {
         com.coderace.entity.User user = (com.coderace.entity.User) authentication.getPrincipal();
         String username = user.getUsername();
 
-        log.info("Creating room for user: {} (username: {})", request.getCodeforcesHandle(), username);
+        log.info("Creating room for user: {} (username: {})", request.getHandle(), username);
 
-        String roomId = gameService.createRoom(request.getCodeforcesHandle(), username);
+        String roomId = gameService.createRoom(request.getHandle(), username);
 
         Map<String, String> response = new HashMap<>();
         response.put("roomId", roomId);

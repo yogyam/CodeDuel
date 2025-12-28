@@ -28,7 +28,7 @@ function RoomPage() {
   const [error, setError] = useState(null);
 
   // Get handle from authenticated user
-  const codeforcesHandle = user?.codeforcesHandle;
+  const handle = user?.username;
 
   /**
    * Creates a new room
@@ -36,8 +36,8 @@ function RoomPage() {
   const handleCreateRoom = async (e) => {
     e.preventDefault();
 
-    if (!codeforcesHandle) {
-      setError('Please set your Codeforces handle in your profile');
+    if (!handle) {
+      setError('Please login to create or join rooms');
       return;
     }
 
@@ -45,7 +45,7 @@ function RoomPage() {
     setError('');
 
     try {
-      const response = await apiService.createRoom(codeforcesHandle);
+      const response = await apiService.createRoom(handle);
       // Navigate to the game room
       navigate(`/game/${response.roomId}`);
     } catch (err) {
@@ -62,8 +62,8 @@ function RoomPage() {
   const handleJoinRoom = async (e) => {
     e.preventDefault();
 
-    if (!codeforcesHandle) {
-      setError('Please set your Codeforces handle in your profile');
+    if (!handle) {
+      setError('Please login to create or join rooms');
       return;
     }
 
@@ -98,7 +98,7 @@ function RoomPage() {
             🏁 CodeRace
           </h1>
           <p className="text-gray-600">
-            Race against your friends to solve Codeforces problems!
+            Race against your friends to solve Programming problems!
           </p>
         </div>
 
@@ -110,20 +110,20 @@ function RoomPage() {
         )}
 
         {/* Logged in as indicator */}
-        {codeforcesHandle ? (
+        {handle ? (
           <div className="mb-6 p-3 bg-blue-50 rounded-lg border border-blue-200">
             <p className="text-sm text-gray-700">
               <span className="font-semibold">Playing as:</span>{' '}
-              <span className="text-blue-600 font-mono">{codeforcesHandle}</span>
+              <span className="text-blue-600 font-mono">{handle}</span>
             </p>
           </div>
         ) : (
           <div className="mb-6 p-4 bg-yellow-50 rounded-lg border border-yellow-300">
             <p className="text-sm text-yellow-800 mb-2">
-              ⚠️ <span className="font-semibold">Codeforces handle not set</span>
+              ⚠️ <span className="font-semibold">Not logged in</span>
             </p>
             <p className="text-xs text-yellow-700">
-              Please set your Codeforces handle to create or join rooms.
+              Please login to create or join rooms.
             </p>
           </div>
         )}
@@ -175,7 +175,7 @@ function RoomPage() {
           <ul className="text-sm text-gray-700 space-y-1">
             <li>• Create a room and share the Room ID with friends</li>
             <li>• Host selects problem difficulty and starts the race</li>
-            <li>• First to solve the problem on Codeforces wins!</li>
+            <li>• First to solve the problem on Programming wins!</li>
           </ul>
         </div>
       </div>

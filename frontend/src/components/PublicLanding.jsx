@@ -32,7 +32,7 @@ function PublicLanding() {
 
                 <div className="hero-center">
                     <h1 className="hero-title">
-                        Race Against Friends to Solve Codeforces Problems
+                        Race Against Friends to Solve Programming Challenges
                     </h1>
                     <p className="hero-subtitle">
                         Compete in real-time coding challenges and improve your skills together
@@ -55,7 +55,7 @@ function PublicLanding() {
                     <div className="step">
                         <div className="step-icon">1</div>
                         <h3>Select Problem</h3>
-                        <p>Choose difficulty and get a random Codeforces problem</p>
+                        <p>Choose difficulty and get a random programming problem</p>
                     </div>
                     <div className="step">
                         <div className="step-icon">2</div>

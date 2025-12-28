@@ -134,7 +134,7 @@ function LoginPage() {
                         </div>
                         <div className="feature-item">
                             <span className="feature-icon">★</span>
-                            <span>Solve Codeforces problems</span>
+                            <span>Solve programming challenges</span>
                         </div>
                         <div className="feature-item">
                             <span className="feature-icon">⚬</span>

@@ -9,13 +9,13 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Represents a coding problem (from Codeforces or LLM-generated)
+ * Represents a coding problem (LLM-generated or external)
  */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class Problem {
-    // Legacy Codeforces fields (optional for generated problems)
+    // Legacy external API fields (optional for generated problems)
     private String contestId;
     private String index;
 
@@ -28,7 +28,7 @@ public class Problem {
     private String description; // HTML content of problem statement
 
     // LLM Generation fields
-    private String source; // "CODEFORCES" or "GENERATED"
+    private String source; // "EXTERNAL" or "GENERATED"
     private String llmModel; // e.g., "gemini-pro"
     private LocalDateTime generatedAt;
     private Boolean isVerified; // Admin verification flag
@@ -44,10 +44,10 @@ public class Problem {
     private Integer qualityScore; // 0-100 quality score from validation
 
     /**
-     * Returns the full problem URL (Codeforces only)
+     * Returns the full problem URL (external API only)
      */
     public String getProblemUrl() {
-        if ("CODEFORCES".equals(source) && contestId != null && index != null) {
+        if ("EXTERNAL".equals(source) && contestId != null && index != null) {
             return "https://codeforces.com/problemset/problem/" + contestId + "/" + index;
         }
         return null;

@@ -14,8 +14,7 @@ function SignupPage() {
     const [formData, setFormData] = useState({
         email: '',
         password: '',
-        confirmPassword: '',
-        codeforcesHandle: ''
+        confirmPassword: ''
     });
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
@@ -53,8 +52,7 @@ function SignupPage() {
         try {
             await registerWithEmail(
                 formData.email,
-                formData.password,
-                formData.codeforcesHandle || null
+                formData.password
             );
             // AuthContext handles redirect to dashboard
         } catch (err) {
@@ -117,21 +115,6 @@ function SignupPage() {
                                 onChange={handleChange}
                                 placeholder="Re-enter password"
                                 required
-                                disabled={loading}
-                            />
-                        </div>
-
-                        <div className="form-group">
-                            <label htmlFor="codeforcesHandle">
-                                Codeforces Handle <span className="optional">(Optional)</span>
-                            </label>
-                            <input
-                                type="text"
-                                id="codeforcesHandle"
-                                name="codeforcesHandle"
-                                value={formData.codeforcesHandle}
-                                onChange={handleChange}
-                                placeholder="tourist"
                                 disabled={loading}
                             />
                         </div>
