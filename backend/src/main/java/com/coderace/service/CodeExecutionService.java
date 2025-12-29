@@ -116,7 +116,9 @@ public class CodeExecutionService {
             TestCase tc = testCases.get(i);
 
             try {
-                ExecutionResult result = executeCode(code, language, tc.getInput());
+                // Convert literal \n to actual newlines in test input
+                String processedInput = tc.getInput().replace("\\n", "\n");
+                ExecutionResult result = executeCode(code, language, processedInput);
 
                 if (!result.isSuccess()) {
                     String error = String.format("Test %d: Runtime error - %s", i + 1, result.getError());
