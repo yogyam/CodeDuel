@@ -52,15 +52,15 @@ public class AuthController {
 
             User user = authService.getUserByEmail(request.email());
 
-            // Set access token cookie
+            // Set access token cookie with SameSite attribute
             jakarta.servlet.http.Cookie accessCookie = jwtUtil.generateTokenCookie(
                     user.getId(), user.getEmail(), user.getUsername());
-            response.addCookie(accessCookie);
+            jwtUtil.addCookieWithSameSite(response, accessCookie);
 
-            // Create and set refresh token cookie
+            // Create and set refresh token cookie with SameSite attribute
             String refreshToken = refreshTokenService.createRefreshToken(user.getId());
             jakarta.servlet.http.Cookie refreshCookie = jwtUtil.generateRefreshTokenCookie(refreshToken);
-            response.addCookie(refreshCookie);
+            jwtUtil.addCookieWithSameSite(response, refreshCookie);
 
             // Return user info only (no token in body)
             AuthResponse.UserInfo userInfo = new AuthResponse.UserInfo(
@@ -92,9 +92,9 @@ public class AuthController {
 
             User user = authService.getUserByEmail(request.email());
 
-            // Set JWT as httpOnly cookie
+            // Set JWT as httpOnly cookie with SameSite attribute
             Cookie cookie = jwtUtil.generateTokenCookie(user.getId(), user.getEmail(), user.getUsername());
-            response.addCookie(cookie);
+            jwtUtil.addCookieWithSameSite(response, cookie);
 
             // Return user info only (no token in body)
             AuthResponse.UserInfo userInfo = new AuthResponse.UserInfo(
@@ -178,16 +178,16 @@ public class AuthController {
             // Get user details
             User user = authService.getUserById(userId);
 
-            // Generate new access token
+            // Generate new access token with SameSite attribute
             jakarta.servlet.http.Cookie accessCookie = jwtUtil.generateTokenCookie(
                     user.getId(), user.getEmail(), user.getUsername());
-            response.addCookie(accessCookie);
+            jwtUtil.addCookieWithSameSite(response, accessCookie);
 
-            // Rotate refresh token
+            // Rotate refresh token with SameSite attribute
             String newRefreshToken = refreshTokenService.rotateRefreshToken(refreshToken);
             if (newRefreshToken != null) {
                 jakarta.servlet.http.Cookie refreshCookie = jwtUtil.generateRefreshTokenCookie(newRefreshToken);
-                response.addCookie(refreshCookie);
+                jwtUtil.addCookieWithSameSite(response, refreshCookie);
             } else {
                 return ResponseEntity
                         .status(HttpStatus.UNAUTHORIZED)

@@ -171,6 +171,7 @@ public class JwtUtil {
 
     /**
      * Generate JWT token as an httpOnly cookie for XSS protection
+     * Note: SameSite attribute must be set via Set-Cookie header in response
      * 
      * @param userId   User's database ID
      * @param email    User's email
@@ -186,12 +187,36 @@ public class JwtUtil {
         cookie.setPath("/");
         cookie.setMaxAge(maxAge);
 
-        // SameSite attribute (not directly supported in Cookie class, must be set in
-        // response)
-        // Note: Will be added via response header in controller
-
         log.debug("Generated JWT cookie for user: {}", email);
         return cookie;
+    }
+
+    /**
+     * Add cookie with SameSite attribute to response
+     * Cookie class doesn't support SameSite, so we set it via Set-Cookie header
+     * 
+     * @param response HttpServletResponse
+     * @param cookie   Cookie to add
+     */
+    public void addCookieWithSameSite(jakarta.servlet.http.HttpServletResponse response,
+            jakarta.servlet.http.Cookie cookie) {
+        StringBuilder setCookieHeader = new StringBuilder();
+        setCookieHeader.append(cookie.getName()).append("=").append(cookie.getValue());
+        setCookieHeader.append("; Path=").append(cookie.getPath());
+        setCookieHeader.append("; Max-Age=").append(cookie.getMaxAge());
+
+        if (cookie.isHttpOnly()) {
+            setCookieHeader.append("; HttpOnly");
+        }
+        if (cookie.getSecure()) {
+            setCookieHeader.append("; Secure");
+        }
+        if (sameSite != null && !sameSite.isEmpty()) {
+            setCookieHeader.append("; SameSite=").append(sameSite);
+        }
+
+        response.addHeader("Set-Cookie", setCookieHeader.toString());
+        log.debug("Added cookie with SameSite={}: {}", sameSite, cookie.getName());
     }
 
     /**
