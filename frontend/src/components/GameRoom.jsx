@@ -8,6 +8,9 @@ import CodeEditor from './CodeEditor';
 import DOMPurify from 'dompurify';
 import './GameRoom.css';
 
+// Get backend URL from environment
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+
 /**
  * Game Room Component
  * Displays the game room with users, problem, and status
@@ -118,7 +121,7 @@ function GameRoom() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
-      const response = await fetch('/api/game/generate-titles', {
+      const response = await fetch(`${API_URL}/api/game/generate-titles`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -171,7 +174,7 @@ function GameRoom() {
     setGenerationStatus('Generating full problem...');
 
     try {
-      const response = await fetch('/api/game/generate-problem-from-title', {
+      const response = await fetch(`${API_URL}/api/game/generate-problem-from-title`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
