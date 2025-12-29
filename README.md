@@ -1,6 +1,6 @@
 # CodeDuel 🏁
 
-> A real-time competitive coding platform where developers race to solve AI-generated programming challenges. Built with Spring Boot, React, and Google Gemini AI.
+> A real-time competitive coding platform where developers race to solve AI-generated programming challenges. Built with Spring Boot, React, and OpenAI.
 
 [![Live Demo](https://img.shields.io/badge/demo-live-success)](https://codeduel-frontend.railway.app)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.2.0-brightgreen.svg)](https://spring.io/projects/spring-boot)
@@ -15,7 +15,7 @@
 
 CodeDuel is a **real-time multiplayer coding arena** where developers compete to solve algorithmic programming problems. Unlike traditional coding platforms, CodeDuel:
 
-- **Generates unique problems on-demand** using Google Gemini AI
+- **Generates unique problems on-demand** using OpenAI
 - **Executes code in real-time** across 7+ programming languages
 - **Validates solutions instantly** with automated test cases
 - **Supports multiplayer racing** with live WebSocket updates
@@ -27,7 +27,7 @@ Perfect for coding interviews, competitive programming practice, or friendly dev
 ## ✨ Key Features
 
 ### 🤖 AI-Powered Problem Generation
-- **Google Gemini Integration**: Generates unique, high-quality coding problems on demand
+- **OpenAI Integration**: Generates unique, high-quality coding problems on demand
 - **Two-Step Generation**: Choose from 3 AI-generated title options, then generate full problem
 - **8 Problem Categories**: Dynamic Programming, Graphs, Trees, Greedy, Binary Search, Sorting, Arrays/Hashing, Backtracking
 - **4 Difficulty Levels**: Easy, Medium, Hard, Expert
@@ -90,7 +90,7 @@ Perfect for coding interviews, competitive programming practice, or friendly dev
 - **Security**: Spring Security + OAuth2 + JWT (jjwt 0.11.5)
 - **Database**: PostgreSQL with Spring Data JPA
 - **Migrations**: Flyway
-- **AI Integration**: Google Gemini API (REST client)
+- **AI Integration**: OpenAI API (REST client)
 - **Code Execution**: Piston API integration
 - **Caching**: Caffeine (in-memory cache)
 - **Rate Limiting**: Bucket4j
@@ -109,7 +109,7 @@ Perfect for coding interviews, competitive programming practice, or friendly dev
 - **XSS Protection**: DOMPurify
 
 ### External APIs
-- **Google Gemini API**: AI-powered problem generation
+- **OpenAI API**: AI-powered problem generation
 - **Piston API**: Multi-language code execution engine
 
 ### Architecture Highlights
@@ -144,7 +144,7 @@ CodeDuel/
 │   │   │   ├── AuthService.java            # User authentication
 │   │   │   ├── CodeExecutionService.java   # Piston API integration
 │   │   │   ├── GameService.java            # Game room management
-│   │   │   ├── ProblemGenerationService.java  # Gemini AI integration
+│   │   │   ├── ProblemGenerationService.java  # OpenAI integration
 │   │   │   ├── ProblemValidationService.java  # Test case validation
 │   │   │   ├── RefreshTokenService.java    # Token rotation
 │   │   │   └── UserCacheService.java       # User caching
@@ -232,9 +232,9 @@ SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/codeduel
 SPRING_DATASOURCE_USERNAME=your_db_username
 SPRING_DATASOURCE_PASSWORD=your_db_password
 
-# Google Gemini API
-OPENAI_API_KEY=your_gemini_api_key
-OPENAI_API_URL=https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent
+# OpenAI API
+OPENAI_API_KEY=your_openai_api_key
+OPENAI_API_URL=https://api.openai.com/v1/chat/completions
 
 # JWT Secret (generate a secure random string)
 JWT_SECRET=your_jwt_secret_key_here
@@ -433,8 +433,8 @@ This is a personal portfolio project, but suggestions and feedback are welcome!
 - ✅ Try hard refresh (Cmd/Ctrl + Shift + R)
 
 ### Problem generation fails
-- ✅ Verify Gemini API key is valid
-- ✅ Check API quota (Gemini free tier limits)
+- ✅ Verify OpenAI API key is valid
+- ✅ Check API quota (OpenAI free tier limits)
 - ✅ Look for errors in backend logs
 - ✅ Test API key with a simple curl request
 
@@ -464,7 +464,7 @@ You are free to:
 
 ## 🙏 Acknowledgments
 
-- **Google Gemini API** for AI-powered problem generation
+- **OpenAI API** for AI-powered problem generation
 - **Piston API** for secure code execution
 - **Spring Boot** team for the excellent framework
 - **Monaco Editor** for the VS Code editing experience

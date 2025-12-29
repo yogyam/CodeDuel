@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * DTO for Gemini API problem generation response
+ * DTO for OpenAI API problem generation response
  */
 @Data
 @NoArgsConstructor

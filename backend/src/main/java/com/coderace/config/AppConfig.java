@@ -29,7 +29,7 @@ public class AppConfig {
     public RestTemplate restTemplate(RestTemplateBuilder builder) {
         return builder
                 .setConnectTimeout(Duration.ofSeconds(10))
-                .setReadTimeout(Duration.ofSeconds(120)) // Increased for Gemini 2.5 thinking mode
+                .setReadTimeout(Duration.ofSeconds(120)) // Increased for OpenAI responses
                 .build();
     }
 

@@ -185,7 +185,7 @@ public class GameService {
             return false;
         }
 
-        // Generate problem using Gemini AI
+        // Generate problem using OpenAI
         Problem problem;
         try {
             problem = problemGenerationService.generateProblem(filter, roomId);

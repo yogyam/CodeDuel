@@ -27,7 +27,7 @@ import java.util.*;
 import com.coderace.constants.GameConstants;
 
 /**
- * Service for generating coding problems using Google Gemini API
+ * Service for generating coding problems using OpenAI API
  */
 @Service
 @Slf4j
@@ -203,7 +203,7 @@ public class ProblemGenerationService {
             broadcastStatus(roomId, GameConstants.STATUS_BUILDING_PROMPT);
             String prompt = buildPrompt(filter);
 
-            // Step 2: Calling Gemini API
+            // Step 2: Calling OpenAI API
             broadcastStatus(roomId, GameConstants.STATUS_GENERATING_AI);
             GeneratedProblemResponse response = callOpenAI(prompt);
 
@@ -805,7 +805,7 @@ public class ProblemGenerationService {
     }
 
     /**
-     * Convert Gemini response to Problem entity
+     * Convert OpenAI response to Problem entity
      * Now includes validation metadata
      */
     private Problem convertToProblem(GeneratedProblemResponse response, ProblemFilter filter,
