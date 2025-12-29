@@ -82,7 +82,9 @@ export function AuthProvider({ children }) {
         } catch (error) {
             console.error('Logout error:', error);
         } finally {
+            // Clear user state and localStorage token
             setUser(null);
+            localStorage.removeItem('jwtToken');
         }
     };
 
@@ -91,6 +93,9 @@ export function AuthProvider({ children }) {
      * Backend sets httpOnly cookie automatically
      */
     const registerWithEmail = async (email, password) => {
+        // Clear any existing OAuth tokens from localStorage
+        localStorage.removeItem('jwtToken');
+
         const response = await fetch(`${API_URL}/api/auth/register`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -114,6 +119,9 @@ export function AuthProvider({ children }) {
      * Backend sets httpOnly cookie automatically
      */
     const loginWithEmail = async (email, password) => {
+        // Clear any existing OAuth tokens from localStorage
+        localStorage.removeItem('jwtToken');
+
         const response = await fetch(`${API_URL}/api/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
