@@ -8,6 +8,17 @@ const axiosInstance = axios.create({
   withCredentials: true, // Send cookies with every request
 });
 
+// Add request interceptor to include JWT token from localStorage if available
+axiosInstance.interceptors.request.use((config) => {
+  const token = localStorage.getItem('jwtToken');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+}, (error) => {
+  return Promise.reject(error);
+});
+
 /**
  * Service for making HTTP requests to the backend
  */

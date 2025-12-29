@@ -44,9 +44,9 @@ public class OAuth2SuccessHandler {
                 // Get the user to generate cookie with proper info
                 User user = authService.getUserByEmail(email);
 
-                // Set JWT as httpOnly cookie
+                // Set JWT as httpOnly cookie with SameSite=None
                 Cookie cookie = jwtUtil.generateTokenCookie(user.getId(), user.getEmail(), user.getUsername());
-                response.addCookie(cookie);
+                jwtUtil.addCookieWithSameSite(response, cookie);
 
                 log.info("Set httpOnly cookie for OAuth user: {}", email);
 
