@@ -18,6 +18,21 @@ export function AuthProvider({ children }) {
     useEffect(() => {
         const initAuth = async () => {
             try {
+                // FIRST: Check if there's a token in the URL (from OAuth redirect)
+                const urlParams = new URLSearchParams(window.location.search);
+                const urlToken = urlParams.get('token');
+
+                if (urlToken) {
+                    // Store token from OAuth redirect
+                    localStorage.setItem('jwtToken', urlToken);
+
+                    // Clean up URL
+                    urlParams.delete('token');
+                    const newUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '');
+                    window.history.replaceState({}, '', newUrl);
+                }
+
+                // NOW: Get token from localStorage
                 const token = localStorage.getItem('jwtToken');
 
                 // Call /me endpoint with token in header
