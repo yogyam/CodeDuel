@@ -1,5 +1,5 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Navbar from './Navbar';
 import './Dashboard.css';
@@ -11,6 +11,23 @@ import './Dashboard.css';
 function Dashboard() {
     const { user } = useAuth();
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
+
+    // Extract token from URL after OAuth redirect
+    useEffect(() => {
+        const token = searchParams.get('token');
+        if (token) {
+            // Store token in localStorage
+            localStorage.setItem('jwtToken', token);
+
+            // Clean up URL (remove token from query params)
+            searchParams.delete('token');
+            setSearchParams(searchParams);
+
+            // Reload to update auth context
+            window.location.reload();
+        }
+    }, [searchParams, setSearchParams]);
 
     return (
         <div className="dashboard">

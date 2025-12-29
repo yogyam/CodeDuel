@@ -14,25 +14,38 @@ export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    // Load user on mount - check if authenticated via cookie
+    // Load user on mount - check if authenticated via token
     useEffect(() => {
         const initAuth = async () => {
             try {
-                // Call /me endpoint - cookie will be sent automatically
+                const token = localStorage.getItem('jwtToken');
+
+                // Call /me endpoint with token in header
+                const headers = {
+                    'Content-Type': 'application/json'
+                };
+
+                if (token) {
+                    headers['Authorization'] = `Bearer ${token}`;
+                }
+
                 const response = await fetch(`${API_URL}/api/auth/me`, {
-                    credentials: 'include' // Send cookies with request
+                    credentials: 'include', // Still send cookies if available
+                    headers
                 });
 
                 if (response.ok) {
                     const userData = await response.json();
                     setUser(userData);
                 } else {
-                    // Not authenticated or cookie expired
+                    // Not authenticated or token expired
                     setUser(null);
+                    localStorage.removeItem('jwtToken');
                 }
             } catch (error) {
                 console.error('Auth initialization error:', error);
                 setUser(null);
+                localStorage.removeItem('jwtToken');
             } finally {
                 setLoading(false);
             }

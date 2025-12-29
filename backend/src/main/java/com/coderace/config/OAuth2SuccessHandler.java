@@ -50,8 +50,10 @@ public class OAuth2SuccessHandler {
 
                 log.info("Set httpOnly cookie for OAuth user: {}", email);
 
-                // Redirect to frontend dashboard (no token in URL)
-                String redirectUrl = frontendUrl + "/dashboard";
+                // Redirect to frontend dashboard with token in URL (for cross-domain cookie
+                // workaround)
+                // The frontend will extract the token and store it in localStorage
+                String redirectUrl = frontendUrl + "/dashboard?token=" + token;
                 response.sendRedirect(redirectUrl);
 
             } catch (Exception e) {
