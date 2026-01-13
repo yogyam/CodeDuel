@@ -390,13 +390,11 @@ The AI can generate problems across **8 major categories** with **40+ specific s
 
 ## 🎨 Screenshots
 
-> **Note**: Add screenshots of your deployed application here:
-> - Landing page with Google login
-> - Room creation interface
-> - Problem filter selection
-> - Title selection screen
-> - Active game with Monaco editor
-> - Winner celebration screen
+### Problem Walkthrough
+![Problem Walkthrough](assets/problem-walkthrough.png)
+
+### Waiting Room
+![Waiting Room](assets/waiting-room.png)
 
 ---
 
