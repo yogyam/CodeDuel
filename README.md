@@ -1,6 +1,6 @@
 # CodeDuel 🏁
 
-A real-time competitive coding platform where developers race to solve AI-generated programming challenges. Built with Spring Boot, React, and OpenAI.
+A real-time competitive coding platform where developers race to solve AI-generated programming challenges. Built with Java Spring Boot, React, and OpenAI.
 
 [![Live Demo](https://img.shields.io/badge/demo-live-success)](https://codeduel-frontend.railway.app)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.2.0-brightgreen.svg)](https://spring.io/projects/spring-boot)
